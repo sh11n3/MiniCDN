@@ -1,6 +1,7 @@
 package de.htwsaar.minicdn.edge;
 
 import de.htwsaar.minicdn.common.util.Sha256Util;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.*;
@@ -171,5 +172,45 @@ public class EdgeController {
         return ResponseEntity.status(originResponse.getStatusCode())
                 .headers(out)
                 .body(originResponse.getBody());
+    }
+
+    /**
+     * Admin-Schnittstelle zur Cache-Invalidierung.
+     */
+    @RestController
+    @RequestMapping("/api/edge/cache")
+    public class CacheAdminApi {
+
+        /**
+         * Invalidiert eine spezifische Datei im Cache.
+         * Beispiel: DELETE /api/edge/cache/files/video.mp4
+         */
+        @DeleteMapping("/files/{path:.+}")
+        public ResponseEntity<Map<String, String>> invalidateFile(@PathVariable("path") String path) {
+            boolean removed = edgeCacheService.remove(path);
+            return ResponseEntity.ok(Map.of("path", path, "status", removed ? "invalidated" : "not in cache"));
+        }
+
+        /**
+         * Invalidiert alle Dateien, die mit einem bestimmten Prefix beginnen.
+         * Beispiel: DELETE /api/edge/cache/prefix?value=movies/
+         */
+        @DeleteMapping("/prefix")
+        public ResponseEntity<Map<String, Object>> invalidateByPrefix(@RequestParam("value") String prefix) {
+            int count = edgeCacheService.removeByPrefix(prefix);
+            return ResponseEntity.ok(Map.of(
+                    "prefix", prefix,
+                    "invalidatedCount", count));
+        }
+
+        /**
+         * Leert den gesamten Cache der Edge-Node.
+         * Beispiel: DELETE /api/edge/cache/all
+         */
+        @DeleteMapping("/all")
+        public ResponseEntity<Map<String, String>> clearAll() {
+            edgeCacheService.clear();
+            return ResponseEntity.ok(Map.of("status", "cache cleared"));
+        }
     }
 }
