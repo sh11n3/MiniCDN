@@ -15,6 +15,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -41,6 +42,8 @@ public class CDNController {
     private final RoutingIndex routingIndex;
     private final HttpClient httpClient;
     private final MetricsService metricsService;
+    private final RouterStatsService routerStatsService;
+    private final ObjectMapper objectMapper;
 
     public record EdgeNode(String url) {}
 
@@ -49,6 +52,8 @@ public class CDNController {
     public CDNController() {
         this.routingIndex = new RoutingIndex();
         this.metricsService = new MetricsService();
+        this.routerStatsService = new RouterStatsService();
+        this.objectMapper = new ObjectMapper();
         this.httpClient =
                 HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
     }
@@ -72,14 +77,19 @@ public class CDNController {
             @PathVariable("path") String path,
             // schauen nach der Region des Nutzers (Query Paramater)
             @RequestParam(value = "region", required = false) String regionQuery,
+            // optional explizite Client-ID (lokales Tracking ohne IP)
+            @RequestParam(value = "clientId", required = false) String clientIdQuery,
             // im HTTP-Header
-            @RequestHeader(value = "X-Client-Region", required = false) String regionHeader) {
+            @RequestHeader(value = "X-Client-Region", required = false) String regionHeader,
+            @RequestHeader(value = "X-Client-Id", required = false) String clientIdHeader) {
 
         // Region mitgeben oder automatisch mitsenden
         String region = (regionQuery != null && !regionQuery.isBlank()) ? regionQuery : regionHeader;
+        String clientId = selectNonBlank(clientIdQuery, clientIdHeader);
 
         if (region == null || region.isBlank()) {
             metricsService.recordError(); // ungültige Anfrage loggen
+            routerStatsService.recordError();
             // Beispiel für Fehlermeldung im Body:
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body("Fehler: Region fehlt. Bitte 'region' Query-Parameter oder 'X-Client-Region' Header setzen.");
@@ -87,12 +97,14 @@ public class CDNController {
 
         // Neue Anfrage für Region XY
         metricsService.recordRequest(region);
+        routerStatsService.recordRequest(region, clientId);
         // Round Robin Algorithmus wird aufgerufen
         EdgeNode selectedNode = routingIndex.getNextNode(region);
 
         // Region ist bekannt, aber aktuell ist kein Server darin angemeldet
         if (selectedNode == null) {
             metricsService.recordError();
+            routerStatsService.recordError();
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body("Fehler: Keine verfügbaren Edge-Nodes für Region '" + region + "' gefunden.");
         }
@@ -217,6 +229,109 @@ public class CDNController {
                     .exceptionally(ex -> false);
         }
     }
+
+    private String selectNonBlank(String preferred, String fallback) {
+        if (preferred != null && !preferred.isBlank()) {
+            return preferred.trim();
+        }
+        if (fallback != null && !fallback.isBlank()) {
+            return fallback.trim();
+        }
+        return null;
+    }
+
+    /**
+     * Admin-API für aggregierte Router-/Edge-Statistiken.
+     */
+    @RestController
+    @RequestMapping("/api/cdn/admin")
+    public class AdminStatsApi {
+
+        /**
+         * Liefert strukturierte Betriebsmetriken.
+         *
+         * @param windowSec Zeitfenster in Sekunden (z. B. 60)
+         * @param aggregateEdge wenn true, werden Edge-Statistiken über alle Nodes aggregiert
+         * @return strukturierter Statistiksnapshot als JSON
+         */
+        @GetMapping("/stats")
+        public ResponseEntity<Map<String, Object>> getStats(
+                @RequestParam(value = "windowSec", defaultValue = "60") int windowSec,
+                @RequestParam(value = "aggregateEdge", defaultValue = "true") boolean aggregateEdge) {
+
+            int safeWindow = Math.max(1, windowSec);
+            RouterStatsService.RouterStatsSnapshot routerSnapshot = routerStatsService.snapshot(safeWindow);
+            Map<String, List<EdgeNode>> rawIndex = routingIndex.getRawIndex();
+
+            long totalNodes = rawIndex.values().stream().mapToLong(List::size).sum();
+            Map<String, Integer> nodesByRegion = new java.util.HashMap<>();
+            rawIndex.forEach((region, nodes) -> nodesByRegion.put(region, nodes.size()));
+
+            long cacheHits = 0;
+            long cacheMisses = 0;
+            long filesCached = 0;
+            java.util.List<String> edgeErrors = new java.util.ArrayList<>();
+
+            if (aggregateEdge) {
+                for (List<EdgeNode> nodes : rawIndex.values()) {
+                    for (EdgeNode node : nodes) {
+                        try {
+                            HttpRequest request = HttpRequest.newBuilder()
+                                    .uri(URI.create(node.url() + "/api/edge/admin/stats?windowSec=" + safeWindow))
+                                    .timeout(Duration.ofSeconds(2))
+                                    .GET()
+                                    .build();
+
+                            HttpResponse<String> response =
+                                    httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+                            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                                EdgeStatsPayload payload = objectMapper.readValue(response.body(), EdgeStatsPayload.class);
+                                cacheHits += payload.cacheHits();
+                                cacheMisses += payload.cacheMisses();
+                                filesCached += payload.filesCached();
+                            } else {
+                                edgeErrors.add(node.url() + " -> HTTP " + response.statusCode());
+                            }
+                        } catch (Exception ex) {
+                            edgeErrors.add(node.url() + " -> " + ex.getClass().getSimpleName());
+                        }
+                    }
+                }
+            }
+
+            double cacheHitRatio = (cacheHits + cacheMisses) == 0
+                    ? 0.0
+                    : (double) cacheHits / (cacheHits + cacheMisses);
+
+            Map<String, Object> response = new java.util.LinkedHashMap<>();
+            response.put("timestamp", java.time.Instant.now().toString());
+            response.put("windowSec", safeWindow);
+            response.put(
+                    "router",
+                    Map.of(
+                            "totalRequests", routerSnapshot.totalRequests(),
+                            "requestsPerMinute", routerSnapshot.requestsPerWindow(),
+                            "routingErrors", routerSnapshot.routingErrors(),
+                            "activeClients", routerSnapshot.activeClients(),
+                            "requestsByRegion", routerSnapshot.requestsByRegion()));
+            response.put(
+                    "cache",
+                    Map.of(
+                            "hits", cacheHits,
+                            "misses", cacheMisses,
+                            "hitRatio", cacheHitRatio,
+                            "filesLoaded", filesCached));
+            response.put("nodes", Map.of("total", totalNodes, "byRegion", nodesByRegion));
+            response.put("edgeAggregation", Map.of("enabled", aggregateEdge, "errors", edgeErrors));
+            return ResponseEntity.ok(response);
+        }
+    }
+
+    /**
+     * JSON-Payload des Edge-Stats-Endpunkts, wie er vom Router eingelesen wird.
+     */
+    public record EdgeStatsPayload(long cacheHits, long cacheMisses, long filesCached) {}
 
     public static class MetricsService {
         private final AtomicLong totalRequests =
