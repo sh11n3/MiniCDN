@@ -193,6 +193,26 @@ public class EdgeController {
     }
 
     /**
+     * Admin-Schnittstelle für Edge-Metriken.
+     */
+    @RestController
+    @RequestMapping("/api/edge/admin/stats")
+    public class AdminStatsApi {
+
+        /**
+         * Liefert strukturierte Laufzeitmetriken dieser Edge-Node.
+         *
+         * @param windowSec Zeitfenster in Sekunden für die exakte Request-Rate
+         * @return Snapshot der Edge-Metriken
+         */
+        @GetMapping
+        public ResponseEntity<EdgeMetricsService.EdgeStatsSnapshot> getStats(
+                @RequestParam(value = "windowSec", defaultValue = "60") int windowSec) {
+            return ResponseEntity.ok(edgeMetricsService.snapshot(windowSec, edgeCacheService.size()));
+        }
+    }
+
+    /**
      * Admin-Schnittstelle zur Cache-Invalidierung.
      */
     @RestController
