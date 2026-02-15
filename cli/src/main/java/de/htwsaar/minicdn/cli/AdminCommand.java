@@ -12,7 +12,6 @@ import picocli.CommandLine.Command;
             AdminUserMgmtCommand.class,
             AdminConfigCommand.class,
             PingCommand.class,
-            SmokeTestCommand.class,
-            AdminStatsCommand.class
+            SmokeTestCommand.class
         })
 public class AdminCommand {}
