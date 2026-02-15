@@ -129,6 +129,18 @@ public class EdgeController {
     }
 
     /**
+     * Liefert strukturierte Laufzeitmetriken dieser Edge-Node.
+     *
+     * @param windowSec Zeitfenster in Sekunden für exakte Request-Rate
+     * @return Snapshot der Edge-Metriken
+     */
+    @GetMapping("/admin/stats")
+    public ResponseEntity<EdgeMetricsService.EdgeStatsSnapshot> getAdminStats(
+            @RequestParam(value = "windowSec", defaultValue = "60") int windowSec) {
+        return ResponseEntity.ok(edgeMetricsService.snapshot(windowSec, edgeCacheService.size()));
+    }
+
+    /**
      * Baut die vollständige URL zum Origin-Server für eine Datei.
      *
      * @param path der Dateipfad

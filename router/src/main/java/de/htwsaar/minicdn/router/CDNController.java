@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestTemplate;
 
 /**
  * Zentraler CDN Controller, der Anfragen an verfügbare Edge-Nodes delegiert.
@@ -41,6 +42,7 @@ public class CDNController {
 
     private final RoutingIndex routingIndex;
     private final HttpClient httpClient;
+    private final RestTemplate restTemplate;
     private final MetricsService metricsService;
     private final RouterStatsService routerStatsService;
     private final ObjectMapper objectMapper;
