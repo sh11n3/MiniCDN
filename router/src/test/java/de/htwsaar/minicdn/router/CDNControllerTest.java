@@ -28,13 +28,11 @@ class CDNControllerTest {
     void setUp() {
         cdnController = new CDNController();
 
-        // Wir konfigurieren MockMvc so, dass es unseren Controller und die
-        // dazugehörige Admin-Schnittstelle (innere Klasse) kennt.
         mockMvc = MockMvcBuilders.standaloneSetup(
-                        cdnController,
-                        cdnController.new RoutingAdminApi(),
-                        cdnController.new AdminStatsApi())
-                .build();
+                cdnController,
+                cdnController.new RoutingAdminApi(),
+                cdnController.new AdminStatsApi()
+        ).build();
     }
 
     @Test
@@ -135,7 +133,6 @@ class CDNControllerTest {
                 // In der Statistik für die Region "EU" sollte auch eine 1 stehen.
                 .andExpect(jsonPath("$.requestsByRegion.EU", is(1)));
     }
-
 
     @Test
     @DisplayName("Admin-Stats: exakte RPM und aktive Clients müssen stimmen")

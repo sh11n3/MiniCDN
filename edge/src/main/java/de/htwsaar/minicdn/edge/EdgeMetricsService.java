@@ -70,12 +70,7 @@ public class EdgeMetricsService {
         double hitRatio = totalCacheDecisions == 0 ? 0.0 : (double) hits / totalCacheDecisions;
 
         return new EdgeStatsSnapshot(
-                totalRequests.get(),
-                requestTimestampsMs.size(),
-                hits,
-                misses,
-                hitRatio,
-                Math.max(0, filesCached));
+                totalRequests.get(), requestTimestampsMs.size(), hits, misses, hitRatio, Math.max(0, filesCached));
     }
 
     private void purgeOldRequests(long nowMs, int windowSeconds) {

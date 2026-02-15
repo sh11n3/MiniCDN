@@ -48,7 +48,9 @@ public class RouterStatsService {
         totalRequests.incrementAndGet();
 
         if (region != null && !region.isBlank()) {
-            requestsByRegion.computeIfAbsent(region, ignored -> new AtomicLong(0)).incrementAndGet();
+            requestsByRegion
+                    .computeIfAbsent(region, ignored -> new AtomicLong(0))
+                    .incrementAndGet();
         }
 
         if (clientId != null && !clientId.isBlank()) {

@@ -48,10 +48,7 @@ public class AdminStatsCommand implements Runnable {
                 description = "Edge-Metriken aggregieren (true/false)")
         boolean aggregateEdge;
 
-        @Option(
-                names = "--json",
-                defaultValue = "false",
-                description = "Vollständige JSON-Antwort ausgeben")
+        @Option(names = "--json", defaultValue = "false", description = "Vollständige JSON-Antwort ausgeben")
         boolean printJson;
 
         @Override
@@ -62,7 +59,8 @@ public class AdminStatsCommand implements Runnable {
 
             try {
                 HttpClient client = HttpClient.newHttpClient();
-                HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
+                HttpRequest request =
+                        HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
                 HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
                 if (response.statusCode() < 200 || response.statusCode() >= 300) {
@@ -84,17 +82,32 @@ public class AdminStatsCommand implements Runnable {
                 JsonNode nodes = root.path("nodes");
 
                 System.out.println("[ADMIN] Mini-CDN Stats");
-                System.out.printf("  timestamp        : %s%n", root.path("timestamp").asText("n/a"));
-                System.out.printf("  windowSec        : %d%n", root.path("windowSec").asInt());
-                System.out.printf("  totalRequests    : %d%n", router.path("totalRequests").asLong());
-                System.out.printf("  requestsPerMinute: %d%n", router.path("requestsPerMinute").asLong());
-                System.out.printf("  activeClients    : %d%n", router.path("activeClients").asLong());
-                System.out.printf("  routingErrors    : %d%n", router.path("routingErrors").asLong());
-                System.out.printf("  cacheHits        : %d%n", cache.path("hits").asLong());
-                System.out.printf("  cacheMisses      : %d%n", cache.path("misses").asLong());
-                System.out.printf("  cacheHitRatio    : %.4f%n", cache.path("hitRatio").asDouble());
-                System.out.printf("  filesLoaded      : %d%n", cache.path("filesLoaded").asLong());
-                System.out.printf("  nodesTotal       : %d%n", nodes.path("total").asLong());
+                System.out.printf(
+                        "  timestamp        : %s%n", root.path("timestamp").asText("n/a"));
+                System.out.printf(
+                        "  windowSec        : %d%n", root.path("windowSec").asInt());
+                System.out.printf(
+                        "  totalRequests    : %d%n",
+                        router.path("totalRequests").asLong());
+                System.out.printf(
+                        "  requestsPerMinute: %d%n",
+                        router.path("requestsPerMinute").asLong());
+                System.out.printf(
+                        "  activeClients    : %d%n",
+                        router.path("activeClients").asLong());
+                System.out.printf(
+                        "  routingErrors    : %d%n",
+                        router.path("routingErrors").asLong());
+                System.out.printf(
+                        "  cacheHits        : %d%n", cache.path("hits").asLong());
+                System.out.printf(
+                        "  cacheMisses      : %d%n", cache.path("misses").asLong());
+                System.out.printf(
+                        "  cacheHitRatio    : %.4f%n", cache.path("hitRatio").asDouble());
+                System.out.printf(
+                        "  filesLoaded      : %d%n", cache.path("filesLoaded").asLong());
+                System.out.printf(
+                        "  nodesTotal       : %d%n", nodes.path("total").asLong());
             } catch (Exception ex) {
                 System.err.println("[ADMIN] Stats request failed: " + ex.getMessage());
             }

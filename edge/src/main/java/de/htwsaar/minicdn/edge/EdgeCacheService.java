@@ -96,7 +96,6 @@ public class EdgeCacheService {
         return before - cache.size();
     }
 
-
     /**
      * Liefert die aktuelle Anzahl an Cache-Einträgen.
      *
