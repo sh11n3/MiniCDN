@@ -16,7 +16,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,7 +28,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.context.annotation.Bean;
 
 /**
  * Zentraler CDN Controller, der Anfragen an verfügbare Edge-Nodes delegiert.
@@ -234,7 +232,7 @@ public class CDNController {
             return removed
                     ? ResponseEntity.ok().build()
                     : ResponseEntity.status(HttpStatus.NOT_FOUND)
-                            .body("Knoten " + url + " in Region " + region + " nicht gefunden.");
+                    .body("Knoten " + url + " in Region " + region + " nicht gefunden.");
         }
 
         // Router geht seine Liste durch und fragt (falls gewünscht) bei jedem einzelnen Edge Server, ob er noch gesund
@@ -284,7 +282,7 @@ public class CDNController {
          */
         @GetMapping("/metrics")
         public ResponseEntity<Map<String, Object>>
-                getMetrics() { // Map<String, Object> ist ein Container, der die Statistiken in Schlüssel Wert Paaren
+        getMetrics() { // Map<String, Object> ist ein Container, der die Statistiken in Schlüssel Wert Paaren
             // speichert
             return ResponseEntity.ok(
                     metricsService.getSnapshot()); // metricService nach Kopie fragen --> zurück an Admin in JSON Format
@@ -350,8 +348,7 @@ public class CDNController {
                 @RequestParam(value = "aggregateEdge", defaultValue = "true") boolean aggregateEdge) {
 
             int safeWindow = Math.max(1, windowSec);
-            RouterStatsService.RouterStatsSnapshot routerSnapshot =
-                    routerStatsService.snapshot(safeWindow);
+            RouterStatsService.RouterStatsSnapshot routerSnapshot = routerStatsService.snapshot(safeWindow);
 
             Map<String, List<EdgeNode>> rawIndex = routingIndex.getRawIndex();
 
@@ -369,8 +366,7 @@ public class CDNController {
                     for (EdgeNode node : nodes) {
                         try {
                             HttpRequest request = HttpRequest.newBuilder()
-                                    .uri(URI.create(node.url()
-                                            + "/api/edge/admin/stats?windowSec=" + safeWindow))
+                                    .uri(URI.create(node.url() + "/api/edge/admin/stats?windowSec=" + safeWindow))
                                     .timeout(Duration.ofSeconds(2))
                                     .GET()
                                     .build();
@@ -390,46 +386,47 @@ public class CDNController {
                             }
 
                         } catch (Exception ex) {
-                            edgeErrors.add(node.url() + " -> "
-                                    + ex.getClass().getSimpleName());
+                            edgeErrors.add(node.url() + " -> " + ex.getClass().getSimpleName());
                         }
                     }
                 }
             }
 
             double cacheHitRatio =
-                    (cacheHits + cacheMisses) == 0
-                            ? 0.0
-                            : (double) cacheHits / (cacheHits + cacheMisses);
+                    (cacheHits + cacheMisses) == 0 ? 0.0 : (double) cacheHits / (cacheHits + cacheMisses);
 
             Map<String, Object> response = new java.util.LinkedHashMap<>();
             response.put("timestamp", java.time.Instant.now().toString());
             response.put("windowSec", safeWindow);
 
-            response.put("router", Map.of(
-                    "totalRequests", routerSnapshot.totalRequests(),
-                    "requestsPerMinute", routerSnapshot.requestsPerWindow(),
-                    "routingErrors", routerSnapshot.routingErrors(),
-                    "activeClients", routerSnapshot.activeClients(),
-                    "requestsByRegion", routerSnapshot.requestsByRegion()
-            ));
+            response.put(
+                    "router",
+                    Map.of(
+                            "totalRequests", routerSnapshot.totalRequests(),
+                            "requestsPerMinute", routerSnapshot.requestsPerWindow(),
+                            "routingErrors", routerSnapshot.routingErrors(),
+                            "activeClients", routerSnapshot.activeClients(),
+                            "requestsByRegion", routerSnapshot.requestsByRegion()));
 
-            response.put("cache", Map.of(
-                    "hits", cacheHits,
-                    "misses", cacheMisses,
-                    "hitRatio", cacheHitRatio,
-                    "filesLoaded", filesCached
-            ));
+            response.put(
+                    "cache",
+                    Map.of(
+                            "hits", cacheHits,
+                            "misses", cacheMisses,
+                            "hitRatio", cacheHitRatio,
+                            "filesLoaded", filesCached));
 
-            response.put("nodes", Map.of(
-                    "total", totalNodes,
-                    "byRegion", nodesByRegion
-            ));
+            response.put(
+                    "nodes",
+                    Map.of(
+                            "total", totalNodes,
+                            "byRegion", nodesByRegion));
 
-            response.put("edgeAggregation", Map.of(
-                    "enabled", aggregateEdge,
-                    "errors", edgeErrors
-            ));
+            response.put(
+                    "edgeAggregation",
+                    Map.of(
+                            "enabled", aggregateEdge,
+                            "errors", edgeErrors));
 
             return ResponseEntity.ok(response);
         }
