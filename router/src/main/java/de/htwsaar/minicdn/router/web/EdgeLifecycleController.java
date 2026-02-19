@@ -480,8 +480,8 @@ public class EdgeLifecycleController {
             }
 
             try {
-                HttpRequest req = withCurrentTraceId(HttpRequest.newBuilder(ready)
-                                .timeout(Duration.ofSeconds(1)))
+                HttpRequest req = withCurrentTraceId(
+                                HttpRequest.newBuilder(ready).timeout(Duration.ofSeconds(1)))
                         .GET()
                         .build();
                 HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
@@ -571,7 +571,6 @@ public class EdgeLifecycleController {
         }
     }
 
-
     /**
      * Ergänzt den aktuellen Trace-Header für interne HTTP-Aufrufe.
      *
@@ -587,5 +586,4 @@ public class EdgeLifecycleController {
         }
         return builder.header(TraceIdFilter.TRACE_ID_HEADER, traceId);
     }
-
 }
