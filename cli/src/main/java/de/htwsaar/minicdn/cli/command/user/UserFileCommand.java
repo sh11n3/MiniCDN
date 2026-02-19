@@ -25,13 +25,6 @@ import picocli.CommandLine.Spec;
 @Command(
         name = "file",
         description = "File operations",
-        mixinStandardHelpOptions = true,
-        footerHeading = "%nBeispiele:%n",
-        footer = {
-            "  minicdn user file download EU docs/manual.pdf -o ./manual.pdf -H http://localhost:8082",
-            "  minicdn user file download EU docs/manual.pdf -o ./manual.pdf -H http://localhost:8082 --client-id alice",
-            "  minicdn user file download EU docs/manual.pdf -o ./manual.pdf -H http://localhost:8082 --overwrite"
-        },
         subcommands = {UserFileCommand.FileDownloadCommand.class})
 public final class UserFileCommand implements Runnable {
 
@@ -78,16 +71,7 @@ public final class UserFileCommand implements Runnable {
      *   <li>1 = Exception/IO</li>
      * </ul>
      */
-    @Command(
-            name = "download",
-            description = "Download a file via router (handles redirect to edge)",
-            mixinStandardHelpOptions = true,
-            footerHeading = "%nBeispiele:%n",
-            footer = {
-                "  minicdn user file download EU docs/manual.pdf -o ./manual.pdf -H http://localhost:8082",
-                "  minicdn user file download EU docs/manual.pdf -o ./manual.pdf -H http://localhost:8082 --client-id alice",
-                "  minicdn user file download EU docs/manual.pdf -o ./manual.pdf -H http://localhost:8082 --overwrite"
-            })
+    @Command(name = "download", description = "Download a file via router (handles redirect to edge)")
     public static final class FileDownloadCommand implements Callable<Integer> {
 
         @ParentCommand
@@ -99,27 +83,23 @@ public final class UserFileCommand implements Runnable {
         @Option(
                 names = {"-o", "--out"},
                 required = true,
-                paramLabel = "OUT_FILE",
                 description = "Local output file path")
         private Path out;
 
         @Option(
                 names = {"-H", "--host"},
                 defaultValue = "http://localhost:8082",
-                paramLabel = "ROUTER_URL",
                 description = "Router base URL (scheme://host:port)")
         private URI host;
 
         @Option(
                 names = {"-r", "--region"},
                 required = true,
-                paramLabel = "REGION",
                 description = "Client region for routing, e.g. EU")
         private String region;
 
         @Option(
                 names = {"--client-id"},
-                paramLabel = "CLIENT_ID",
                 description = "Optional client id (used by router stats), e.g. alice")
         private String clientId;
 
@@ -193,6 +173,7 @@ public final class UserFileCommand implements Runnable {
         }
 
         private static boolean isUnsafeRemotePath(String p) {
+            // KISS: block Traversal and absolute paths (also block Windows separators)
             return p.startsWith("/") || p.contains("..") || p.contains("\\");
         }
     }

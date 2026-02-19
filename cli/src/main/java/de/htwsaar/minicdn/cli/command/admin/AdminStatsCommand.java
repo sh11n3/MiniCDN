@@ -1,8 +1,9 @@
 package de.htwsaar.minicdn.cli.command.admin;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.htwsaar.minicdn.cli.di.CliContext;
+import de.htwsaar.minicdn.common.serialization.JacksonCodec;
+import de.htwsaar.minicdn.common.serialization.MiniCdnSerializationException;
 import java.io.PrintWriter;
 import java.net.URI;
 import java.net.http.HttpRequest;
@@ -24,12 +25,6 @@ import picocli.CommandLine.Spec;
         name = "stats",
         description = "Show Mini-CDN runtime statistics",
         mixinStandardHelpOptions = true,
-        footerHeading = "%nBeispiele:%n",
-        footer = {
-            "  minicdn admin stats show -H http://localhost:8080",
-            "  minicdn admin stats show -H http://localhost:8080 --window-sec 120 --aggregate-edge=false",
-            "  minicdn admin stats show -H http://localhost:8080 --json"
-        },
         subcommands = {AdminStatsCommand.AdminStatsShowCommand.class})
 public final class AdminStatsCommand implements Runnable {
 
@@ -61,41 +56,26 @@ public final class AdminStatsCommand implements Runnable {
      * - 2: HTTP-Fehlerstatus (non-2xx)
      * - 1: Exception/Netzwerkfehler
      */
-    @Command(
-            name = "show",
-            description = "Fetch and display structured stats from the router",
-            mixinStandardHelpOptions = true,
-            footerHeading = "%nBeispiele:%n",
-            footer = {
-                "  minicdn admin stats show -H http://localhost:8080",
-                "  minicdn admin stats show -H http://localhost:8080 --window-sec 10",
-                "  minicdn admin stats show -H http://localhost:8080 --aggregate-edge=false",
-                "  minicdn admin stats show -H http://localhost:8080 --json"
-            })
+    @Command(name = "show", description = "Fetch and display structured stats from the router")
     public static final class AdminStatsShowCommand implements Callable<Integer> {
-
-        private static final ObjectMapper MAPPER = new ObjectMapper();
 
         private final CliContext ctx;
 
         @Option(
                 names = {"-H", "--host"},
                 defaultValue = "http://localhost:8080",
-                paramLabel = "ROUTER_URL",
                 description = "Basis-URL des Routers, z.B. http://localhost:8080")
         private URI host;
 
         @Option(
                 names = "--window-sec",
                 defaultValue = "60",
-                paramLabel = "SECONDS",
                 description = "Zeitfenster in Sekunden für exakte Requests/Minute (min. 1)")
         private int windowSec;
 
         @Option(
                 names = "--aggregate-edge",
                 defaultValue = "true",
-                paramLabel = "true|false",
                 description = "Edge-Metriken aggregieren (true/false)")
         private boolean aggregateEdge;
 
@@ -138,10 +118,10 @@ public final class AdminStatsCommand implements Runnable {
                     return 2;
                 }
 
-                JsonNode root = MAPPER.readTree(response.body());
+                JsonNode root = JacksonCodec.fromJson(response.body(), JsonNode.class);
 
                 if (printJson) {
-                    out.println(MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root));
+                    out.println(JacksonCodec.toJson(root));
                     out.flush();
                     return 0;
                 }
@@ -175,11 +155,15 @@ public final class AdminStatsCommand implements Runnable {
                 out.flush();
 
                 return 0;
-            } catch (Exception ex) {
-                err.println("[ADMIN] Stats request failed: " + ex.getMessage());
+            } catch (MiniCdnSerializationException ex) {
+                err.println("[ADMIN] Failed to parse stats JSON " + ex.getMessage());
                 err.flush();
                 return 1;
+            } catch (Exception e) {
+                err.println("[ADMIN] stats REQ fail ! " + e.getMessage());
             }
+
+            return 0;
         }
 
         private static URI ensureTrailingSlash(URI uri) {

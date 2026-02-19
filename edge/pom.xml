@@ -56,16 +56,9 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>de.htwsaar.minicdn.edge.EdgeApp</mainClass>
-                    <classifier>exec</classifier>
+                    <mainClass>de.htwsaar.minicdn.edge.EdgeApp</mainClass>  <!-- ← für origin-app -->
                 </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>repackage</goal>
-                        </goals>
-                    </execution>
-                </executions>
+
             </plugin>
 
             <!-- Compiler/Surefire: Versionen aus Parent -->

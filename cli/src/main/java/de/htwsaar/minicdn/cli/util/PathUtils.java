@@ -1,11 +1,10 @@
 package de.htwsaar.minicdn.cli.util;
 
 /**
- * Hilfsfunktionen zur Normalisierung von Pfaden, z. B. Entfernen von führendem Slash oder bestimmten Präfixen wie "origin/" oder "data/".
+ * Small path helpers used by multiple CLI commands.
  */
 public final class PathUtils {
-    private PathUtils() {
-    }
+    private PathUtils() {}
 
     public static String normalizePath(String raw) {
         String clean = (raw == null) ? "" : raw.trim();
@@ -18,4 +17,7 @@ public final class PathUtils {
         return p.startsWith("/") ? p.substring(1) : p;
     }
 
+    public static boolean isBlankPath(String p) {
+        return normalizePath(p).isBlank();
+    }
 }

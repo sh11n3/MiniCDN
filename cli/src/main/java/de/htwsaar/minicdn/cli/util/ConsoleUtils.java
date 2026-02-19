@@ -5,7 +5,7 @@ import java.io.PrintWriter;
 import java.util.Objects;
 
 /**
- * Hilfsfunktionen zum formatierten Ausgeben von Info- und Fehlermeldungen auf der Konsole, mit konsistentem Präfix und automatischem Flush.
+ * Small helpers to standardize CLI output formatting.
  */
 public final class ConsoleUtils {
     private ConsoleUtils() {}

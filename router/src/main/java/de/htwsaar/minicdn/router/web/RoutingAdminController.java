@@ -1,9 +1,10 @@
 package de.htwsaar.minicdn.router.web;
 
+import de.htwsaar.minicdn.common.dto.EdgeNodeDto;
+import de.htwsaar.minicdn.common.dto.MetricsInfoDto;
 import de.htwsaar.minicdn.router.dto.BulkRequest;
 import de.htwsaar.minicdn.router.dto.BulkResponse;
 import de.htwsaar.minicdn.router.dto.EdgeNode;
-import de.htwsaar.minicdn.router.dto.EdgeNodeStatus;
 import de.htwsaar.minicdn.router.service.EdgeHttpClient;
 import de.htwsaar.minicdn.router.service.MetricsService;
 import de.htwsaar.minicdn.router.service.RoutingIndex;
@@ -13,8 +14,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -107,36 +106,41 @@ public class RoutingAdminController {
      * @return Knotenstatus nach Region gruppiert
      */
     @GetMapping
-    public ResponseEntity<Map<String, List<EdgeNodeStatus>>> getIndex(
+    public ResponseEntity<List<EdgeNodeDto>> getIndex(
             @RequestParam(value = "checkHealth", defaultValue = "false") boolean checkHealth) {
 
         Map<String, List<EdgeNode>> rawIndex = routingIndex.getRawIndex();
-        Map<String, List<EdgeNodeStatus>> result = new ConcurrentHashMap<>();
+
+        // Thread-safe list for concurrent updates
+        List<EdgeNodeDto> resultList = Collections.synchronizedList(new ArrayList<>());
 
         if (!checkHealth) {
+            // Ohne Check: Einfach alle Knoten sammeln
             rawIndex.forEach((region, nodes) -> {
-                List<EdgeNodeStatus> statuses = nodes.stream()
-                        .map(n -> new EdgeNodeStatus(n.url(), true))
-                        .collect(Collectors.toList());
-                result.put(region, statuses);
+                for (EdgeNode node : nodes) {
+                    resultList.add(new EdgeNodeDto(node.url(), region, true)); // Default: online=true
+                }
             });
-            return ResponseEntity.ok(result);
+            return ResponseEntity.ok(resultList);
         }
 
+        // asynchronous check
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         rawIndex.forEach((region, nodes) -> {
-            List<EdgeNodeStatus> statuses = Collections.synchronizedList(new ArrayList<>());
-            result.put(region, statuses);
-
             for (EdgeNode node : nodes) {
-                futures.add(edgeHttpClient
+                CompletableFuture<Void> future = edgeHttpClient
                         .checkNodeHealth(node, Duration.ofSeconds(1))
-                        .thenAccept(isHealthy -> statuses.add(new EdgeNodeStatus(node.url(), isHealthy))));
+                        .thenAccept(isHealthy -> {
+                            resultList.add(new EdgeNodeDto(node.url(), region, isHealthy));
+                        });
+                futures.add(future);
             }
         });
 
+        // wait for all health checks to complete
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        return ResponseEntity.ok(result);
+
+        return ResponseEntity.ok(resultList);
     }
 
     /**
@@ -145,7 +149,7 @@ public class RoutingAdminController {
      * @return Metriken als Schlüssel/Wert-Struktur
      */
     @GetMapping("/metrics")
-    public ResponseEntity<Map<String, Object>> getMetrics() {
-        return ResponseEntity.ok(metricsService.getSnapshot());
+    public ResponseEntity<MetricsInfoDto> getMetrics() {
+        return ResponseEntity.ok(metricsService.getMetricsInfo());
     }
 }
