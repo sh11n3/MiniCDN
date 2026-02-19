@@ -1,10 +1,8 @@
 package de.htwsaar.minicdn.router.service;
 
-import de.htwsaar.minicdn.common.dto.MetricsInfoDto;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 /**
@@ -43,18 +41,16 @@ public class MetricsService {
     }
 
     /**
-     * gets the current metrics as a DTO
+     * Liefert eine aktuelle Kopie aller Router-Metriken.
      *
-     * @return DTO with the current metrics values
+     * @return Snapshot der Metrikwerte
      */
-    public MetricsInfoDto getMetricsInfo() {
-
-        Map<String, Long> regionCounts = regionStats.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().get()));
-
-        Map<String, Long> nodeCounts = nodeSelectionStats.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().get()));
-
-        return new MetricsInfoDto(totalRequests.get(), routingErrors.get(), regionCounts, nodeCounts);
+    public Map<String, Object> getSnapshot() {
+        Map<String, Object> snapshot = new java.util.HashMap<>();
+        snapshot.put("totalRequests", totalRequests.get());
+        snapshot.put("routingErrors", routingErrors.get());
+        snapshot.put("requestsByRegion", regionStats);
+        snapshot.put("selectionsByNode", nodeSelectionStats);
+        return snapshot;
     }
 }

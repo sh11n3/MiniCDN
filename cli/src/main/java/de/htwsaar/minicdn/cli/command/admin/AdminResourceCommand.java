@@ -1,88 +1,86 @@
 package de.htwsaar.minicdn.cli.command.admin;
 
 import de.htwsaar.minicdn.cli.di.CliContext;
+import de.htwsaar.minicdn.cli.dto.HttpCallResult;
 import de.htwsaar.minicdn.cli.service.admin.AdminResourceService;
 import de.htwsaar.minicdn.cli.util.ConsoleUtils;
+import de.htwsaar.minicdn.cli.util.JsonUtils;
 import de.htwsaar.minicdn.cli.util.PathUtils;
 import java.io.FileNotFoundException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Objects;
 import java.util.concurrent.Callable;
+import picocli.CommandLine;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.ParentCommand;
-import picocli.CommandLine.Spec;
 
-/**
- * Admin-Command zur Verwaltung von CDN-Ressourcen.
- *
- * <p>Ohne Subcommand wird die Usage angezeigt.
- * Die eigentlichen Aktionen sind (teilweise) noch Stubs bzw. delegieren an Services.
- */
 @Command(
-        name = "resource",
-        description = "Manage CDN resources",
+        name = "file",
+        description = "Manage files on Origin server.",
+        mixinStandardHelpOptions = true,
+        footerHeading = "%nBeispiele:%n",
+        footer = {
+            "  minicdn admin file upload --origin http://localhost:8080 --path docs/Lebenslauf.pdf --file ./Lebenslauf.pdf",
+            "  minicdn admin file list --origin http://localhost:8080 --page 1 --size 20",
+            "  minicdn admin file show --origin http://localhost:8080 --path docs/Lebenslauf.pdf"
+        },
         subcommands = {
-            AdminResourceCommand.AdminResourceAddCommand.class,
-            AdminResourceCommand.AdminResourceUpdateCommand.class,
-            AdminResourceCommand.AdminResourceDeleteCommand.class,
+            AdminResourceCommand.AdminResourceUploadCommand.class,
             AdminResourceCommand.AdminResourceListCommand.class,
-            AdminResourceCommand.AdminResourceShowCommand.class
+            AdminResourceCommand.AdminResourceShowCommand.class,
+            AdminResourceCommand.AdminResourceDownloadCommand.class
         })
-public final class AdminResourceCommand implements Runnable {
+public class AdminResourceCommand implements Runnable {
 
-    private final CliContext ctx;
+    final CliContext ctx;
 
-    @Spec
-    private CommandSpec spec;
-
-    /**
-     * Konstruktor für Constructor Injection via {@code ContextFactory}.
-     *
-     * @param ctx CLI-Kontext (Output, HTTP-Client, Timeouts, ...)
-     */
     public AdminResourceCommand(CliContext ctx) {
-        this.ctx = Objects.requireNonNull(ctx, "ctx");
+        this.ctx = ctx;
     }
 
     @Override
     public void run() {
-        spec.commandLine().usage(ctx.out());
-        ctx.out().flush();
+        ConsoleUtils.info(ctx.out(), new CommandLine(this).getUsageMessage());
     }
 
-    /**
-     * Erstellt den Service für Admin-Resource-Operationen.
-     *
-     * <p>Hinweis: Aktuell wird pro Aufruf eine neue Instanz erstellt (leichtgewichtig).
-     */
-    private AdminResourceService service() {
+    AdminResourceService service() {
         return new AdminResourceService(ctx.httpClient(), ctx.defaultRequestTimeout());
     }
 
-    @Command(name = "add", description = "Upload a file to the Origin server (admin API)")
-    public static final class AdminResourceAddCommand implements Callable<Integer> {
+    @Command(
+            name = "upload",
+            description = "Upload a file to the Origin server.",
+            mixinStandardHelpOptions = true,
+            footerHeading = "%nBeispiele:%n",
+            footer = {
+                "  minicdn admin file upload --origin http://localhost:8080 --path docs/Lebenslauf.pdf --file ./Lebenslauf.pdf"
+            })
+    public static class AdminResourceUploadCommand implements Callable<Integer> {
 
-        @ParentCommand
-        private AdminResourceCommand parent;
+        @CommandLine.ParentCommand
+        AdminResourceCommand parent;
 
         @Option(
                 names = "--path",
                 required = true,
+                paramLabel = "REMOTE_PATH",
                 description = "Target path on origin, e.g. docs/Lebenslauf.pdf (stored under origin's data/ directory)")
-        private String path;
+        String path;
 
-        @Option(names = "--origin", required = true, description = "Origin server base URL, e.g. http://localhost:8080")
-        private URI origin;
+        @Option(
+                names = "--origin",
+                required = true,
+                paramLabel = "ORIGIN_URL",
+                description = "Origin server base URL, e.g. http://localhost:8080")
+        URI origin;
 
         @Option(
                 names = "--file",
                 required = true,
+                paramLabel = "LOCAL_FILE",
                 description = "Local file path to upload, e.g. /Users/.../Lebenslauf.pdf")
-        private Path file;
+        Path file;
 
         @Override
         public Integer call() throws FileNotFoundException {
@@ -99,7 +97,7 @@ public final class AdminResourceCommand implements Runnable {
                 return 1;
             }
 
-            var result = parent.service().uploadToOrigin(origin, cleanPath, file);
+            HttpCallResult result = parent.service().uploadToOrigin(origin, cleanPath, file);
             int rc = result.is2xx() ? 0 : 2;
 
             if (rc == 0) {
@@ -126,81 +124,202 @@ public final class AdminResourceCommand implements Runnable {
         }
     }
 
-    @Command(name = "update", description = "Update resource configuration")
-    public static final class AdminResourceUpdateCommand implements Runnable {
+    @Command(
+            name = "list",
+            description = "List files on Origin server with pagination.",
+            mixinStandardHelpOptions = true,
+            footerHeading = "%nBeispiele:%n",
+            footer = {
+                "  minicdn admin file list --origin http://localhost:8080",
+                "  minicdn admin file list --origin http://localhost:8080 --page 2 --size 50"
+            })
+    public static class AdminResourceListCommand implements Callable<Integer> {
 
-        @ParentCommand
-        private AdminResourceCommand parent;
+        @CommandLine.ParentCommand
+        AdminResourceCommand parent;
 
-        @Option(names = "--id", required = true, description = "Resource ID")
-        private long id;
+        @Option(
+                names = "--origin",
+                required = true,
+                paramLabel = "ORIGIN_URL",
+                description = "Origin server base URL, e.g. http://localhost:8080")
+        URI origin;
 
-        @Option(names = "--path", description = "New path (optional)")
-        private String path;
+        @Option(names = "--page", description = "Page number (>= 1)", defaultValue = "1")
+        int page;
 
-        @Option(names = "--origin", description = "New origin URL (optional)")
-        private String origin;
-
-        @Option(names = "--cache-ttl", description = "New cache TTL in seconds (optional)")
-        private Integer cacheTtl;
+        @Option(names = "--size", description = "Page size (> 0)", defaultValue = "20")
+        int size;
 
         @Override
-        public void run() {
-            ConsoleUtils.info(
-                    parent.ctx.out(),
-                    "[ADMIN] Update resource %d (path=%s, origin=%s, ttl=%s)",
-                    id,
-                    path,
+        public Integer call() {
+            HttpCallResult result = parent.service().listOriginFiles(origin, page, size);
+
+            var out = parent.ctx.out();
+            var err = parent.ctx.err();
+
+            if (result.is2xx()) {
+                ConsoleUtils.info(
+                        err,
+                        "List files successful: status=%s origin=%s page=%s size=%s",
+                        result.statusCode(),
+                        origin,
+                        page,
+                        size);
+
+                String body = result.body();
+                if (body != null && !body.isBlank()) {
+                    out.println(JsonUtils.formatJson(body));
+                    out.flush();
+                }
+                return 0;
+            }
+
+            ConsoleUtils.error(
+                    err,
+                    "List files failed: status=%s error=%s body=%s origin=%s page=%s size=%s",
+                    result.statusCode(),
+                    result.error(),
+                    result.body(),
                     origin,
-                    cacheTtl);
+                    page,
+                    size);
+            return 2;
         }
     }
 
-    @Command(name = "delete", description = "Delete a resource")
-    public static final class AdminResourceDeleteCommand implements Runnable {
+    @Command(
+            name = "show",
+            description = "Show a file on Origin server (metadata and content as text, if available)",
+            mixinStandardHelpOptions = true,
+            footerHeading = "%nBeispiele:%n",
+            footer = {"  minicdn admin file show --origin http://localhost:8080 --path docs/Lebenslauf.pdf"})
+    public static class AdminResourceShowCommand implements Callable<Integer> {
 
-        @ParentCommand
-        private AdminResourceCommand parent;
+        @CommandLine.ParentCommand
+        AdminResourceCommand parent;
 
-        @Option(names = "--id", required = true, description = "Resource ID")
-        private long id;
+        @Option(
+                names = "--origin",
+                required = true,
+                paramLabel = "ORIGIN_URL",
+                description = "Origin server base URL, e.g. http://localhost:8080")
+        URI origin;
+
+        @Option(
+                names = "--path",
+                required = true,
+                paramLabel = "REMOTE_PATH",
+                description = "File path on origin, e.g. docs/Lebenslauf.pdf")
+        String path;
 
         @Override
-        public void run() {
-            ConsoleUtils.info(parent.ctx.out(), "[ADMIN] Delete resource %d", id);
+        public Integer call() {
+            String cleanPath = PathUtils.normalizePath(path);
+            if (cleanPath.isBlank()) {
+                ConsoleUtils.error(parent.ctx.err(), "Invalid path: '%s' (after normalization: '%s')", path, cleanPath);
+                return 1;
+            }
+
+            HttpCallResult result = parent.service().showOriginFile(origin, cleanPath);
+
+            var out = parent.ctx.out();
+            var err = parent.ctx.err();
+
+            if (result.is2xx()) {
+                ConsoleUtils.info(
+                        err,
+                        "Show file successful: status=%s origin=%s path=%s",
+                        result.statusCode(),
+                        origin,
+                        cleanPath);
+
+                String body = result.body();
+                if (body != null && !body.isBlank()) {
+                    out.println(JsonUtils.formatJson(body));
+                    out.flush();
+                }
+                return 0;
+            }
+
+            ConsoleUtils.error(
+                    err,
+                    "Show file failed: status=%s error=%s body=%s origin=%s path=%s",
+                    result.statusCode(),
+                    result.error(),
+                    result.body(),
+                    origin,
+                    cleanPath);
+            return 2;
         }
     }
 
-    @Command(name = "list", description = "List resources")
-    public static final class AdminResourceListCommand implements Runnable {
+    @Command(
+            name = "download",
+            description = "Download a file from Origin Server to a local path (binary-safe)",
+            mixinStandardHelpOptions = true,
+            footerHeading = "%nBeispiele:%n",
+            footer = {
+                "  minicdn admin file download --origin http://localhost:8080 --path docs/Lebenslauf.pdf --out ./downloads/Lebenslauf.pdf"
+            })
+    public static class AdminResourceDownloadCommand implements Callable<Integer> {
 
-        @ParentCommand
-        private AdminResourceCommand parent;
+        @CommandLine.ParentCommand
+        AdminResourceCommand parent;
 
-        @Option(names = "--page", description = "Page number", defaultValue = "1")
-        private int page;
+        @Option(
+                names = "--origin",
+                required = true,
+                paramLabel = "ORIGIN_URL",
+                description = "Origin server base URL, e.g. http://localhost:8080")
+        URI origin;
 
-        @Option(names = "--size", description = "Page size", defaultValue = "20")
-        private int size;
+        @Option(
+                names = "--path",
+                required = true,
+                paramLabel = "REMOTE_PATH",
+                description = "File path on origin, e.g. docs/Lebenslauf.pdf")
+        String path;
+
+        @Option(
+                names = "--out",
+                required = true,
+                paramLabel = "OUT_FILE",
+                description = "Local output file path, e.g. ./downloads/Lebenslauf.pdf")
+        Path outFile;
 
         @Override
-        public void run() {
-            ConsoleUtils.info(parent.ctx.out(), "[ADMIN] List resources page=%d size=%d", page, size);
-        }
-    }
+        public Integer call() {
+            String cleanPath = PathUtils.normalizePath(path);
+            if (cleanPath.isBlank()) {
+                ConsoleUtils.error(parent.ctx.err(), "Invalid path: '%s' (after normalization: '%s')", path, cleanPath);
+                return 1;
+            }
 
-    @Command(name = "show", description = "Show resource details")
-    public static final class AdminResourceShowCommand implements Runnable {
+            HttpCallResult result = parent.service().downloadOriginFile(origin, cleanPath, outFile);
 
-        @ParentCommand
-        private AdminResourceCommand parent;
+            var err = parent.ctx.err();
+            if (result.is2xx()) {
+                ConsoleUtils.info(
+                        err,
+                        "Download successful: status=%s origin=%s path=%s out=%s",
+                        result.statusCode(),
+                        origin,
+                        cleanPath,
+                        outFile);
+                return 0;
+            }
 
-        @Option(names = "--id", required = true, description = "[ADMIN] Resource ID")
-        private long id;
-
-        @Override
-        public void run() {
-            ConsoleUtils.info(parent.ctx.out(), "[ADMIN] Show resource %d", id);
+            ConsoleUtils.error(
+                    err,
+                    "Download failed: status=%s error=%s body=%s origin=%s path=%s out=%s",
+                    result.statusCode(),
+                    result.error(),
+                    result.body(),
+                    origin,
+                    cleanPath,
+                    outFile);
+            return 2;
         }
     }
 }
