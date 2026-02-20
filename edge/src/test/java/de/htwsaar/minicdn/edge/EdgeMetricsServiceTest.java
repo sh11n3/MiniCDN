@@ -15,11 +15,11 @@ class EdgeMetricsServiceTest {
         MutableClock clock = new MutableClock(Instant.parse("2026-01-01T00:00:00Z"));
         EdgeMetricsService service = new EdgeMetricsService(clock);
 
-        service.recordMiss();
+        service.recordMiss("/a.txt");
         clock.plusSeconds(5);
-        service.recordHit();
+        service.recordHit("/a.txt");
         clock.plusSeconds(5);
-        service.recordHit();
+        service.recordHit("/b.txt");
 
         EdgeMetricsService.EdgeStatsSnapshot first = service.snapshot(60, 7);
         assertEquals(3, first.totalRequests());
@@ -27,6 +27,8 @@ class EdgeMetricsServiceTest {
         assertEquals(2, first.cacheHits());
         assertEquals(1, first.cacheMisses());
         assertEquals(7, first.filesCached());
+        assertEquals(2L, first.downloadsByFile().get("/a.txt"));
+        assertEquals(1L, first.downloadsByFile().get("/b.txt"));
 
         clock.plusSeconds(61);
         EdgeMetricsService.EdgeStatsSnapshot second = service.snapshot(60, 2);
@@ -35,6 +37,8 @@ class EdgeMetricsServiceTest {
         assertEquals(2, second.cacheHits());
         assertEquals(1, second.cacheMisses());
         assertEquals(2, second.filesCached());
+        assertEquals(2L, second.downloadsByFile().get("/a.txt"));
+        assertEquals(1L, second.downloadsByFile().get("/b.txt"));
     }
 
     /** Einfache verstellbare Uhr für deterministische Zeitfenster-Tests. */

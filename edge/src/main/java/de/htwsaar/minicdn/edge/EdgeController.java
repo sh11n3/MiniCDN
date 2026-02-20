@@ -50,13 +50,13 @@ public class EdgeController {
     public ResponseEntity<byte[]> getFile(@PathVariable("path") String path) {
         EdgeCacheService.CacheEntry cached = edgeCacheService.getFresh(path);
         if (cached != null) {
-            edgeMetricsService.recordHit();
+            edgeMetricsService.recordHit(path);
             return ResponseEntity.ok()
                     .headers(headersFromCacheEntry(cached, CACHE_HIT))
                     .body(cached.body());
         }
 
-        edgeMetricsService.recordMiss();
+        edgeMetricsService.recordMiss(path);
         ResponseEntity<byte[]> originResponse = restTemplate.getForEntity(originFileUrl(path), byte[].class);
 
         if (!originResponse.getStatusCode().is2xxSuccessful()) {
@@ -95,13 +95,13 @@ public class EdgeController {
     public ResponseEntity<Void> headFile(@PathVariable("path") String path) {
         EdgeCacheService.CacheEntry cached = edgeCacheService.getFresh(path);
         if (cached != null) {
-            edgeMetricsService.recordHit();
+            edgeMetricsService.recordHit(path);
             return ResponseEntity.ok()
                     .headers(headersFromCacheEntry(cached, CACHE_HIT))
                     .build();
         }
 
-        edgeMetricsService.recordMiss();
+        edgeMetricsService.recordMiss(path);
         ResponseEntity<Void> originResponse =
                 restTemplate.exchange(originFileUrl(path), HttpMethod.HEAD, HttpEntity.EMPTY, Void.class);
 

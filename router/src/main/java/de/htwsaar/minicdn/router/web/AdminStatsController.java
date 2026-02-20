@@ -12,8 +12,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Admin-API für aggregierte Router-/Edge-Statistiken.
@@ -27,6 +31,14 @@ public class AdminStatsController {
     private final EdgeHttpClient edgeHttpClient;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Erstellt den Controller für die Admin-Statistik-API.
+     *
+     * @param routerStatsService Service für Router-Laufzeitmetriken
+     * @param routingIndex Routing-Index mit bekannten Edge-Nodes
+     * @param edgeHttpClient HTTP-Client zum Abruf von Edge-Admin-Statistiken
+     * @param objectMapper Jackson-Mapper für die Edge-Stats-Payload
+     */
     public AdminStatsController(
             RouterStatsService routerStatsService,
             RoutingIndex routingIndex,
@@ -57,17 +69,20 @@ public class AdminStatsController {
         Map<String, List<EdgeNode>> rawIndex = routingIndex.getRawIndex();
 
         long totalNodes = rawIndex.values().stream().mapToLong(List::size).sum();
-        Map<String, Integer> nodesByRegion = new java.util.HashMap<>();
+        Map<String, Integer> nodesByRegion = new TreeMap<>();
         rawIndex.forEach((region, nodes) -> nodesByRegion.put(region, nodes.size()));
 
         long cacheHits = 0;
         long cacheMisses = 0;
         long filesCached = 0;
         List<String> edgeErrors = new ArrayList<>();
+        Map<String, Long> downloadsByFileTotal = new TreeMap<>();
+        Map<String, Map<String, Long>> downloadsByFileByEdge = new TreeMap<>();
 
         if (aggregateEdge) {
             for (List<EdgeNode> nodes : rawIndex.values()) {
                 for (EdgeNode node : nodes) {
+                    String edgeUrl = node.url();
                     try {
                         var response = edgeHttpClient.fetchEdgeAdminStats(node, safeWindow, Duration.ofSeconds(2));
 
@@ -76,11 +91,13 @@ public class AdminStatsController {
                             cacheHits += payload.cacheHits();
                             cacheMisses += payload.cacheMisses();
                             filesCached += payload.filesCached();
+
+                            aggregateDownloadStats(downloadsByFileTotal, downloadsByFileByEdge, edgeUrl, payload);
                         } else {
-                            edgeErrors.add(node.url() + " -> HTTP " + response.statusCode());
+                            edgeErrors.add(edgeUrl + " -> HTTP " + response.statusCode());
                         }
                     } catch (Exception ex) {
-                        edgeErrors.add(node.url() + " -> " + ex.getClass().getSimpleName());
+                        edgeErrors.add(edgeUrl + " -> " + ex.getClass().getSimpleName());
                     }
                 }
             }
@@ -110,6 +127,12 @@ public class AdminStatsController {
                         "filesLoaded", filesCached));
 
         response.put(
+                "downloads",
+                Map.of(
+                        "byFileTotal", downloadsByFileTotal,
+                        "byFileByEdge", downloadsByFileByEdge));
+
+        response.put(
                 "nodes",
                 Map.of(
                         "total", totalNodes,
@@ -122,5 +145,38 @@ public class AdminStatsController {
                         "errors", edgeErrors));
 
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Aggregiert Download-Zähler einer Edge-Node in Gesamt- und Per-Edge-Sichten.
+     *
+     * @param downloadsByFileTotal globale Summen je Datei
+     * @param downloadsByFileByEdge Summen je Datei und Edge-URL
+     * @param edgeUrl URL der Edge-Node
+     * @param payload Edge-Stats-Payload
+     */
+    private void aggregateDownloadStats(
+            Map<String, Long> downloadsByFileTotal,
+            Map<String, Map<String, Long>> downloadsByFileByEdge,
+            String edgeUrl,
+            EdgeStatsPayload payload) {
+
+        Map<String, Long> downloadsByFile = payload.downloadsByFile();
+        if (downloadsByFile == null || downloadsByFile.isEmpty()) {
+            return;
+        }
+
+        downloadsByFile.forEach((path, count) -> {
+            if (path == null || path.isBlank()) {
+                return;
+            }
+            long safeCount = count == null ? 0L : Math.max(0L, count);
+            if (safeCount == 0L) {
+                return;
+            }
+
+            downloadsByFileTotal.merge(path, safeCount, Long::sum);
+            downloadsByFileByEdge.computeIfAbsent(path, ignored -> new TreeMap<>()).put(edgeUrl, safeCount);
+        });
     }
 }
