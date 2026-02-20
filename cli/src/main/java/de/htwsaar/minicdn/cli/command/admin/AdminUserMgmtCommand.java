@@ -2,6 +2,7 @@ package de.htwsaar.minicdn.cli.command.admin;
 
 import de.htwsaar.minicdn.cli.di.CliContext;
 import de.htwsaar.minicdn.cli.service.admin.AdminUserService;
+import de.htwsaar.minicdn.cli.util.DatabaseUtils;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Objects;
@@ -77,7 +78,7 @@ public final class AdminUserMgmtCommand implements Runnable {
 
         @Override
         public void run() {
-            String jdbcUrl = resolveJdbcUrl();
+            String jdbcUrl = DatabaseUtils.resolveJdbcUrl();
             int roleId = parseRole(role);
 
             try (AdminUserService svc = new AdminUserService(jdbcUrl)) {
@@ -93,17 +94,6 @@ public final class AdminUserMgmtCommand implements Runnable {
                 parent.ctx.err().println("[ADMIN] Database error: " + e.getMessage());
                 parent.ctx.err().flush();
             }
-        }
-
-        private String resolveJdbcUrl() {
-            String jdbcUrl = System.getenv("MINICDN_JDBC_URL");
-            if (jdbcUrl == null || jdbcUrl.isBlank()) {
-                jdbcUrl = System.getenv("MINICDNJDBCURL");
-            }
-            if (jdbcUrl == null || jdbcUrl.isBlank()) {
-                jdbcUrl = "jdbc:sqlite:./minicdn.db";
-            }
-            return jdbcUrl;
         }
 
         private int parseRole(String r) {

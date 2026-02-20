@@ -1,39 +1,3 @@
-# MiniCDN
-
-## Module starten (Maven Multi-Module)
-
-Wenn du einen einzelnen Spring-Boot-Service aus dem Repo-Root startest, **nicht** `-am` direkt mit `spring-boot:run` kombinieren.
-Sonst versucht Maven das Goal auch auf Aggregator-/Nicht-Boot-Module anzuwenden ("Unable to find a suitable main class").
-
-### Empfohlener Ablauf
-
-1. Abhängige Module bauen (inkl. `common`):
-   ```bash
-   mvn -pl common,origin -am clean install -DskipTests
-   ```
-2. Service direkt über das Modul-POM starten:
-   ```bash
-   mvn -f origin/pom.xml spring-boot:run "-Dspring-boot.run.profiles=origin"
-   ```
-
-Analog für `edge` und `router`:
-
-```bash
-mvn -f edge/pom.xml spring-boot:run "-Dspring-boot.run.profiles=edge"
-mvn -f router/pom.xml spring-boot:run
-```
-
-## Tracing-Schnellcheck
-
-```bash
-curl -i http://localhost:8080/api/origin/health
-curl -i -H "X-Trace-Id: test-trace-123" http://localhost:8080/api/origin/health
-```
-
-Erwartung: In beiden Antworten ist der Header `X-Trace-Id` enthalten.
-
----
-
 # VerteilteSystemeTemplate
 
 
