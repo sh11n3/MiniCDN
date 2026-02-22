@@ -146,4 +146,22 @@ public final class AdminResourceService {
             return HttpCallResult.ioError(e.getMessage());
         }
     }
+
+    /**
+     * Lösche eine Datei auf dem Origin-Server (Admin-API): DELETE /api/origin/admin/files/{path}
+     */
+    public HttpCallResult deleteOriginFile(URI origin, String cleanPath) {
+        String path = PathUtils.stripLeadingSlash(Objects.toString(cleanPath, ""));
+        if (path.isBlank()) return HttpCallResult.clientError("path must not be blank");
+
+        URI base = UriUtils.ensureTrailingSlash(origin);
+        URI url = base.resolve("api/origin/admin/files/" + path);
+
+        HttpRequest req = HttpUtils.newAdminRequestBuilder(url)
+                .timeout(requestTimeout)
+                .DELETE()
+                .build();
+
+        return HttpUtils.sendForStringBody(httpClient, req);
+    }
 }
