@@ -89,15 +89,7 @@ public final class AdminUserMgmtCommand implements Runnable {
                 int id = svc.addUser(name, roleId);
                 if (id > 0) {
                     ConsoleUtils.info(
-<<<<<<< HEAD
                             parent.ctx.out(), "[ADMIN] User added successfully: id=%d name=%s role=%d", id, name, roleId);
-=======
-                            parent.ctx.out(),
-                            "[ADMIN] User added successfully: id=%d name=%s role=%d",
-                            id,
-                            name,
-                            roleId);
->>>>>>> 735d1eb (erneuerung)
                 } else {
                     ConsoleUtils.error(parent.ctx.err(), "[ADMIN] Failed to add user: name=%s role=%d", name, roleId);
                 }
@@ -107,25 +99,7 @@ public final class AdminUserMgmtCommand implements Runnable {
         }
 
         // Hilfsfunktion zum Parsen der Rolle aus String, unterstützt sowohl benannte Rollen als auch numerische IDs
-<<<<<<< HEAD
-        private int parseRole(String r) {
-            if (r == null) {
-                return ROLE_MAP.get("USER");
-            }
-            String up = r.trim().toUpperCase();
-            Integer mapped = ROLE_MAP.get(up);
-            if (mapped != null) {
-                return mapped;
-            }
-            try {
-                return Integer.parseInt(r.trim());
-            } catch (NumberFormatException ex) {
-                return ROLE_MAP.get("USER");
-            }
-        }
-=======
 
->>>>>>> 735d1eb (erneuerung)
     }
 
     @Command(
@@ -161,21 +135,13 @@ public final class AdminUserMgmtCommand implements Runnable {
 
                 if (data instanceof Collection<?> collection) {
                     if (collection.isEmpty()) {
-                        ConsoleUtils.info(
-                                parent.ctx.out(),
-                                "[ADMIN] No users found (role=%s, page=%d, size=%d)",
-                                role == null ? "*" : role,
-                                page,
-                                size);
+                        ConsoleUtils.info(parent.ctx.out(),
+                                "[ADMIN] No users found (role=%s, page=%d, size=%d)", role == null ? "*" : role, page, size);
                         return;
                     }
 
-                    ConsoleUtils.info(
-                            parent.ctx.out(),
-                            "[ADMIN] Users (role=%s, page=%d, size=%d)",
-                            role == null ? "*" : role,
-                            page,
-                            size);
+                    ConsoleUtils.info(parent.ctx.out(),
+                            "[ADMIN] Users (role=%s, page=%d, size=%d)", role == null ? "*" : role, page, size);
                     int index = 1;
                     for (Object entry : collection) {
                         parent.ctx.out().printf("%d) %s%n", index++, entry);
@@ -190,19 +156,15 @@ public final class AdminUserMgmtCommand implements Runnable {
         }
     }
 
+
     @Command(
             name = "remove",
             description = "Remove an existing user from the system",
             mixinStandardHelpOptions = true,
             footerHeading = "%nBeispiele:%n",
-<<<<<<< HEAD
             footer = {
-                    "  minicdn admin user remove --id 42 --force",
-                    "  minicdn admin user remove --name alice --force --reassign-owner 1"
+                    "  minicdn admin user remove --id 42 --force"
             })
-=======
-            footer = {"  minicdn admin user remove --id 42 --force"})
->>>>>>> 735d1eb (erneuerung)
     public static final class AdminUserRemoveCommand implements Runnable {
 
         @ParentCommand
@@ -211,8 +173,10 @@ public final class AdminUserMgmtCommand implements Runnable {
         @Option(names = "--id", description = "User ID to remove")
         private Long userId;
 
+
         @Option(names = "--force", description = "Do not ask for confirmation")
         private boolean force;
+
 
         @Override
         public void run() {
@@ -233,12 +197,8 @@ public final class AdminUserMgmtCommand implements Runnable {
                 }
 
                 if (svc.removeUser(userId)) {
-                    ConsoleUtils.info(
-                            parent.ctx.out(),
-                            "[ADMIN] Removed user: id=%s name=%s role=%s",
-                            existing.get("id"),
-                            existing.get("name"),
-                            existing.get("role"));
+                    ConsoleUtils.info(parent.ctx.out(), "[ADMIN] Removed user: id=%s name=%s role=%s",
+                            existing.get("id"), existing.get("name"), existing.get("role"));
                 } else {
                     ConsoleUtils.error(parent.ctx.err(), "[ADMIN] Failed to remove user: %s", target);
                 }
@@ -248,11 +208,8 @@ public final class AdminUserMgmtCommand implements Runnable {
         }
 
         private boolean confirmRemoval(String target, Map<String, Object> user) {
-            parent.ctx
-                    .out()
-                    .printf(
-                            "[ADMIN] Removing user: %s (id=%s name=%s role=%s)%n",
-                            target, user.get("id"), user.get("name"), user.get("role"));
+            parent.ctx.out().printf("[ADMIN] Removing user: %s (id=%s name=%s role=%s)%n",
+                    target, user.get("id"), user.get("name"), user.get("role"));
             parent.ctx.out().print("[ADMIN] Are you sure? (y/N): ");
             parent.ctx.out().flush();
 

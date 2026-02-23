@@ -5,6 +5,7 @@ import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Scanner;
+
 import org.jline.terminal.Terminal;
 
 /**

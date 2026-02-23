@@ -3,13 +3,10 @@ package de.htwsaar.minicdn.cli.service.admin;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-<<<<<<< HEAD
-
-=======
 import java.util.List;
 import java.util.Map;
+
 import org.jooq.Condition;
->>>>>>> 735d1eb (erneuerung)
 import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.jooq.SQLDialect;
@@ -34,12 +31,6 @@ public final class AdminUserService implements AutoCloseable {
     }
 
     /**
-<<<<<<< HEAD
-     * Initialisiert das Datenbankschema, falls es noch nicht existiert. Erstellt die Tabelle "users" mit den Spalten "id", "name" und "role".
-     */
-    private void initializeSchema() {
-        dsl.execute("""
-=======
      * Rolle-String zu Integer-Mapping. "ADMIN" wird zu 1, "USER" zu 2. Andere Werte können direkt als Integer geparst werden.
      */
     private static final Map<String, Integer> ROLE_MAP = Map.of("ADMIN", 1, "USER", 2);
@@ -48,9 +39,7 @@ public final class AdminUserService implements AutoCloseable {
      * Initialisiert das Datenbankschema, falls es noch nicht existiert. Erstellt die Tabelle "users" mit den Spalten "id", "name" und "role".
      */
     private void initializeSchema() {
-        dsl.execute(
-                """
->>>>>>> 735d1eb (erneuerung)
+        dsl.execute("""
                     CREATE TABLE IF NOT EXISTS users (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         name TEXT NOT NULL,
@@ -82,12 +71,7 @@ public final class AdminUserService implements AutoCloseable {
                 return id;
             }
             // Falls das nicht funktioniert, versuche es als Number und konvertiere es dann zu int.
-<<<<<<< HEAD
             // Das ist eine zusätzliche Absicherung, falls die Datenbank oder der JDBC-Treiber die ID als anderen numerischen Typ zurückgibt.
-=======
-            // Das ist eine zusätzliche Absicherung, falls die Datenbank oder der JDBC-Treiber die ID als anderen
-            // numerischen Typ zurückgibt.
->>>>>>> 735d1eb (erneuerung)
             Number n = r.get(0, Number.class);
             if (n != null) {
                 return n.intValue();
@@ -122,8 +106,7 @@ public final class AdminUserService implements AutoCloseable {
             condition = DSL.field(DSL.name("role"), Integer.class).eq(parsedRole);
         }
 
-        List<Map<String, Object>> rows = dsl.select(
-                        DSL.field(DSL.name("id")), DSL.field(DSL.name("name")), DSL.field(DSL.name("role")))
+        List<Map<String, Object>> rows = dsl.select(DSL.field(DSL.name("id")), DSL.field(DSL.name("name")), DSL.field(DSL.name("role")))
                 .from(DSL.table(DSL.name("users")))
                 .where(condition)
                 .orderBy(DSL.field(DSL.name("id")))
@@ -181,8 +164,8 @@ public final class AdminUserService implements AutoCloseable {
      */
     public boolean removeUser(Long userId) {
         return dsl.deleteFrom(DSL.table(DSL.name("users")))
-                        .where(buildUserCondition(userId))
-                        .execute()
-                > 0;
+                .where(buildUserCondition(userId))
+                .execute() > 0;
     }
+
 }
