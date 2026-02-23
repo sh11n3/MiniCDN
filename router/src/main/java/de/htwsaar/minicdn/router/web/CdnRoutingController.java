@@ -132,7 +132,6 @@ public class CdnRoutingController {
             boolean ack = edgeHttpClient.isNodeResponsive(selectedNode, Duration.ofMillis(ackTimeoutMs));
             if (ack) {
                 metricsService.recordNodeSelection(selectedNode.url());
-                routerStatsService.recordDownload(path, selectedNode.url());
 
                 URI baseUri = URI.create(UrlUtil.ensureTrailingSlash(selectedNode.url()));
                 String relativePath = EDGE_FILES_PREFIX + UrlUtil.stripLeadingSlash(path);

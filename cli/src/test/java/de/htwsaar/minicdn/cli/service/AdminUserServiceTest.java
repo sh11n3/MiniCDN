@@ -1,36 +1,26 @@
 package de.htwsaar.minicdn.cli.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
+import de.htwsaar.minicdn.cli.db.tables.Users;
 import de.htwsaar.minicdn.cli.service.admin.AdminUserService;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.Comparator;
 import org.jooq.DSLContext;
-import org.jooq.Record3;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
 import org.junit.jupiter.api.Test;
 import org.sqlite.SQLiteDataSource;
 
-/**
- * Tests für {@link AdminUserService} ohne harte Abhängigkeit auf jOOQ-Codegen-Klassen.
- */
 public class AdminUserServiceTest {
 
-    /**
-     * Verifiziert, dass ein Benutzer in einer temporären SQLite-DB angelegt wird.
-     *
-     * @throws Exception bei Setup-/DB-Fehlern
-     */
     @Test
     void addUser() throws Exception {
         Path tmpDir = Files.createTempDirectory("minicdn-test-");
         Path dbFile = tmpDir.resolve("minicdn.db");
-        String jdbcUrl = "jdbc:sqlite:" + dbFile;
+        String jdbcUrl = "jdbc:sqlite:" + dbFile.toString();
 
         try {
             SQLiteDataSource ds = new SQLiteDataSource();
@@ -39,41 +29,37 @@ public class AdminUserServiceTest {
             try (Connection conn = ds.getConnection()) {
                 DSLContext dsl = DSL.using(conn, SQLDialect.SQLITE);
 
+                // create minimal users table
                 dsl.execute(
                         "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, role INTEGER NOT NULL)");
 
+                // use the service
                 AdminUserService adminUserService = new AdminUserService(dsl);
                 int id = adminUserService.addUser("Alice", 1);
                 assertTrue(id > 0, "expected generated id > 0");
 
-                Record3<Integer, String, Integer> rec = dsl
-                        .select(
-                                DSL.field(DSL.name("id"), Integer.class),
-                                DSL.field(DSL.name("name"), String.class),
-                                DSL.field(DSL.name("role"), Integer.class))
-                        .from(DSL.table(DSL.name("users")))
-                        .where(DSL.field(DSL.name("id"), Integer.class).eq(id))
+                // verify via jOOQ
+                var rec = dsl.select(Users.USERS.ID, Users.USERS.NAME, Users.USERS.ROLE)
+                        .from(Users.USERS)
+                        .where(Users.USERS.ID.eq(id))
                         .fetchOne();
 
                 assertNotNull(rec, "Inserted user not found");
-                assertEquals("Alice", rec.get(DSL.field(DSL.name("name"), String.class)));
-                assertEquals(Integer.valueOf(1), rec.get(DSL.field(DSL.name("role"), Integer.class)));
+                assertEquals("Alice", rec.get(Users.USERS.NAME));
+                assertEquals(Integer.valueOf(1), rec.get(Users.USERS.ROLE));
             }
         } finally {
+            // cleanup temp dir
             Files.walk(tmpDir)
                     .sorted(Comparator.reverseOrder())
                     .map(Path::toFile)
-                    .forEach(file -> file.delete());
+                    .forEach(f -> f.delete());
         }
     }
 
-    /**
-     * Integrationstest gegen die Projekt-DB {@code data/users.db}.
-     *
-     * @throws Exception bei Setup-/DB-Fehlern
-     */
     @Test
     void addUser_writesIntoProjectDb_usersDb() throws Exception {
+        // This is an integration test: it touches the real project DB file.
         Path projectDb = Path.of("data", "users.db");
         assertTrue(Files.exists(projectDb), "Expected project DB to exist at: " + projectDb.toAbsolutePath());
 
@@ -94,27 +80,24 @@ public class AdminUserServiceTest {
 
             assertTrue(id > 0, "expected generated id > 0");
 
-            Record3<Integer, String, Integer> rec = dsl
-                    .select(
-                            DSL.field(DSL.name("id"), Integer.class),
-                            DSL.field(DSL.name("name"), String.class),
-                            DSL.field(DSL.name("role"), Integer.class))
-                    .from(DSL.table(DSL.name("users")))
-                    .where(DSL.field(DSL.name("id"), Integer.class).eq(id))
+            var rec = dsl.select(Users.USERS.ID, Users.USERS.NAME, Users.USERS.ROLE)
+                    .from(Users.USERS)
+                    .where(Users.USERS.ID.eq(id))
                     .fetchOne();
 
             assertNotNull(rec, "Inserted user not found in project DB");
-            assertEquals(testName, rec.get(DSL.field(DSL.name("name"), String.class)));
-            assertEquals(Integer.valueOf(1), rec.get(DSL.field(DSL.name("role"), Integer.class)));
+            assertEquals(testName, rec.get(Users.USERS.NAME));
+            assertEquals(Integer.valueOf(1), rec.get(Users.USERS.ROLE));
         } finally {
+            // Cleanup: remove the test row so the project DB is not polluted
             if (insertedId != null) {
                 SQLiteDataSource cleanupDs = new SQLiteDataSource();
                 cleanupDs.setUrl(jdbcUrl);
                 try (Connection cleanupConn = cleanupDs.getConnection()) {
                     DSLContext cleanupDsl = DSL.using(cleanupConn, SQLDialect.SQLITE);
                     cleanupDsl
-                            .deleteFrom(DSL.table(DSL.name("users")))
-                            .where(DSL.field(DSL.name("id"), Integer.class).eq(insertedId))
+                            .deleteFrom(Users.USERS)
+                            .where(Users.USERS.ID.eq(insertedId))
                             .execute();
                 }
             }

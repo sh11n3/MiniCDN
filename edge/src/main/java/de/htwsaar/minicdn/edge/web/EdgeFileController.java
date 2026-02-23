@@ -48,7 +48,7 @@ public class EdgeFileController {
     public ResponseEntity<byte[]> getFile(@PathVariable("path") String path) {
         try {
             FilePayload payload = fileService.getFile(path);
-            recordDecision(path, payload.cache());
+            recordDecision(payload.cache());
             return ResponseEntity.ok().headers(buildHeaders(payload)).body(payload.body());
         } catch (EdgeUpstreamException ex) {
             return ResponseEntity.status(ex.getStatusCode()).build();
@@ -65,7 +65,7 @@ public class EdgeFileController {
     public ResponseEntity<Void> headFile(@PathVariable("path") String path) {
         try {
             FilePayload payload = fileService.headFile(path);
-            recordDecision(null, payload.cache());
+            recordDecision(payload.cache());
             return ResponseEntity.ok().headers(buildHeaders(payload)).build();
         } catch (EdgeUpstreamException ex) {
             return ResponseEntity.status(ex.getStatusCode()).build();
@@ -82,17 +82,8 @@ public class EdgeFileController {
         return h;
     }
 
-    /**
-     * Erfasst die Cache-Entscheidung zusammen mit dem Dateipfad für Download-Statistiken.
-     *
-     * @param path Dateipfad
-     * @param decision Cache-Entscheidung
-     */
-    private void recordDecision(String path, CacheDecision decision) {
-        if (decision == CacheDecision.HIT) {
-            metricsService.recordHit(path);
-            return;
-        }
-        metricsService.recordMiss(path);
+    private void recordDecision(CacheDecision decision) {
+        if (decision == CacheDecision.HIT) metricsService.recordHit();
+        else metricsService.recordMiss();
     }
 }

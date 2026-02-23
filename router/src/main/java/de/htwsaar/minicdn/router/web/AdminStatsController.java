@@ -12,12 +12,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * Admin-API für aggregierte Router-/Edge-Statistiken.
@@ -61,7 +57,7 @@ public class AdminStatsController {
         Map<String, List<EdgeNode>> rawIndex = routingIndex.getRawIndex();
 
         long totalNodes = rawIndex.values().stream().mapToLong(List::size).sum();
-        Map<String, Integer> nodesByRegion = new TreeMap<>();
+        Map<String, Integer> nodesByRegion = new java.util.HashMap<>();
         rawIndex.forEach((region, nodes) -> nodesByRegion.put(region, nodes.size()));
 
         long cacheHits = 0;
@@ -72,7 +68,6 @@ public class AdminStatsController {
         if (aggregateEdge) {
             for (List<EdgeNode> nodes : rawIndex.values()) {
                 for (EdgeNode node : nodes) {
-                    String edgeUrl = node.url();
                     try {
                         var response = edgeHttpClient.fetchEdgeAdminStats(node, safeWindow, Duration.ofSeconds(2));
 
@@ -82,10 +77,10 @@ public class AdminStatsController {
                             cacheMisses += payload.cacheMisses();
                             filesCached += payload.filesCached();
                         } else {
-                            edgeErrors.add(edgeUrl + " -> HTTP " + response.statusCode());
+                            edgeErrors.add(node.url() + " -> HTTP " + response.statusCode());
                         }
                     } catch (Exception ex) {
-                        edgeErrors.add(edgeUrl + " -> " + ex.getClass().getSimpleName());
+                        edgeErrors.add(node.url() + " -> " + ex.getClass().getSimpleName());
                     }
                 }
             }
@@ -113,12 +108,6 @@ public class AdminStatsController {
                         "misses", cacheMisses,
                         "hitRatio", cacheHitRatio,
                         "filesLoaded", filesCached));
-
-        response.put(
-                "downloads",
-                Map.of(
-                        "byFileTotal", routerSnapshot.downloadsByFile(),
-                        "byFileByEdge", routerSnapshot.downloadsByFileByEdge()));
 
         response.put(
                 "nodes",
