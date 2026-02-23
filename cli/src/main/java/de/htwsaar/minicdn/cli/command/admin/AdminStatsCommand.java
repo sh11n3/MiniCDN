@@ -133,7 +133,7 @@ public final class AdminStatsCommand implements Runnable {
             URI url = base.resolve("api/cdn/admin/stats?windowSec=" + safeWindow + "&aggregateEdge=" + aggregateEdge);
 
             try {
-                HttpRequest request = HttpUtils.newAdminRequestBuilder(url, adminToken)
+                HttpRequest request = HttpUtils.newAdminRequestBuilder(url, token)
                         .timeout(ctx.defaultRequestTimeout())
                         .header("X-Admin-Token", token)
                         .GET()
