@@ -31,9 +31,9 @@ import picocli.CommandLine.Spec;
         mixinStandardHelpOptions = true,
         footerHeading = "%nBeispiele:%n",
         footer = {
-            "  minicdn admin stats show -H http://localhost:8080",
-            "  minicdn admin stats show -H http://localhost:8080 --window-sec 120 --aggregate-edge=false",
-            "  minicdn admin stats show -H http://localhost:8080 --json"
+            "  admin stats show -H http://localhost:8080",
+            "  admin stats show -H http://localhost:8080 --window-sec 120 --aggregate-edge=false",
+            "  admin stats show -H http://localhost:8080 --json"
         },
         subcommands = {AdminStatsCommand.AdminStatsShowCommand.class})
 public final class AdminStatsCommand implements Runnable {
@@ -72,10 +72,10 @@ public final class AdminStatsCommand implements Runnable {
             mixinStandardHelpOptions = true,
             footerHeading = "%nBeispiele:%n",
             footer = {
-                "  minicdn admin stats show -H http://localhost:8080",
-                "  minicdn admin stats show -H http://localhost:8080 --window-sec 10",
-                "  minicdn admin stats show -H http://localhost:8080 --aggregate-edge=false",
-                "  minicdn admin stats show -H http://localhost:8080 --json"
+                "  admin stats show -H http://localhost:8080",
+                "  admin stats show -H http://localhost:8080 --window-sec 10",
+                "  admin stats show -H http://localhost:8080 --aggregate-edge=false",
+                "  admin stats show -H http://localhost:8080 --json"
             })
     public static final class AdminStatsShowCommand implements Callable<Integer> {
 
@@ -85,7 +85,7 @@ public final class AdminStatsCommand implements Runnable {
 
         @Option(
                 names = {"-H", "--host"},
-                defaultValue = "http://localhost:8080",
+                defaultValue = "http://localhost:8082",
                 paramLabel = "ROUTER_URL",
                 description = "Basis-URL des Routers, z.B. http://localhost:8080")
         private URI host;
@@ -111,16 +111,12 @@ public final class AdminStatsCommand implements Runnable {
         private boolean printJson;
 
         @Option(
-                names = "--admin-token",
+                names = {"--token"},
+                defaultValue = "secret-token",
                 paramLabel = "TOKEN",
-                description = "Admin token for protected endpoints (fallback: env MINICDN_ADMIN_TOKEN, then -Dminicdn.admin.token)")
-        private String adminToken;
+                description = "Admin token")
+        private String token;
 
-        /**
-         * Erstellt den ausführbaren Untercommand.
-         *
-         * @param ctx CLI-Kontext
-         */
         public AdminStatsShowCommand(CliContext ctx) {
             this.ctx = Objects.requireNonNull(ctx, "ctx");
         }
@@ -139,6 +135,7 @@ public final class AdminStatsCommand implements Runnable {
             try {
                 HttpRequest request = HttpUtils.newAdminRequestBuilder(url, adminToken)
                         .timeout(ctx.defaultRequestTimeout())
+                        .header("X-Admin-Token", token)
                         .GET()
                         .build();
 
