@@ -4,12 +4,10 @@ import de.htwsaar.minicdn.cli.di.CliContext;
 import de.htwsaar.minicdn.cli.service.admin.AdminUserService;
 import de.htwsaar.minicdn.cli.util.ConsoleUtils;
 import de.htwsaar.minicdn.cli.util.DatabaseUtils;
-
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
-
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
@@ -27,14 +25,14 @@ import picocli.CommandLine.Spec;
         mixinStandardHelpOptions = true,
         footerHeading = "%nBeispiele:%n",
         footer = {
-                "  minicdn admin user add --name alice --role ADMIN",
-                "  minicdn admin user list --role USER --page 1 --size 20",
-                "  minicdn admin user remove --id 42 --force"
+            "  minicdn admin user add --name alice --role ADMIN",
+            "  minicdn admin user list --role USER --page 1 --size 20",
+            "  minicdn admin user remove --id 42 --force"
         },
         subcommands = {
-                AdminUserMgmtCommand.AdminUserAddCommand.class,
-                AdminUserMgmtCommand.AdminUserRemoveCommand.class,
-                AdminUserMgmtCommand.AdminUserListCommand.class
+            AdminUserMgmtCommand.AdminUserAddCommand.class,
+            AdminUserMgmtCommand.AdminUserRemoveCommand.class,
+            AdminUserMgmtCommand.AdminUserListCommand.class
         })
 public final class AdminUserMgmtCommand implements Runnable {
 
@@ -64,8 +62,8 @@ public final class AdminUserMgmtCommand implements Runnable {
             mixinStandardHelpOptions = true,
             footerHeading = "%nBeispiele:%n",
             footer = {
-                    "  minicdn admin user add --name alice --role ADMIN",
-                    "  minicdn admin user add --name bob --role USER"
+                "  minicdn admin user add --name alice --role ADMIN",
+                "  minicdn admin user add --name bob --role USER"
             })
     public static final class AdminUserAddCommand implements Runnable {
 
@@ -89,7 +87,11 @@ public final class AdminUserMgmtCommand implements Runnable {
                 int id = svc.addUser(name, roleId);
                 if (id > 0) {
                     ConsoleUtils.info(
-                            parent.ctx.out(), "[ADMIN] User added successfully: id=%d name=%s role=%d", id, name, roleId);
+                            parent.ctx.out(),
+                            "[ADMIN] User added successfully: id=%d name=%s role=%d",
+                            id,
+                            name,
+                            roleId);
                 } else {
                     ConsoleUtils.error(parent.ctx.err(), "[ADMIN] Failed to add user: name=%s role=%d", name, roleId);
                 }
@@ -135,13 +137,21 @@ public final class AdminUserMgmtCommand implements Runnable {
 
                 if (data instanceof Collection<?> collection) {
                     if (collection.isEmpty()) {
-                        ConsoleUtils.info(parent.ctx.out(),
-                                "[ADMIN] No users found (role=%s, page=%d, size=%d)", role == null ? "*" : role, page, size);
+                        ConsoleUtils.info(
+                                parent.ctx.out(),
+                                "[ADMIN] No users found (role=%s, page=%d, size=%d)",
+                                role == null ? "*" : role,
+                                page,
+                                size);
                         return;
                     }
 
-                    ConsoleUtils.info(parent.ctx.out(),
-                            "[ADMIN] Users (role=%s, page=%d, size=%d)", role == null ? "*" : role, page, size);
+                    ConsoleUtils.info(
+                            parent.ctx.out(),
+                            "[ADMIN] Users (role=%s, page=%d, size=%d)",
+                            role == null ? "*" : role,
+                            page,
+                            size);
                     int index = 1;
                     for (Object entry : collection) {
                         parent.ctx.out().printf("%d) %s%n", index++, entry);
@@ -156,15 +166,12 @@ public final class AdminUserMgmtCommand implements Runnable {
         }
     }
 
-
     @Command(
             name = "remove",
             description = "Remove an existing user from the system",
             mixinStandardHelpOptions = true,
             footerHeading = "%nBeispiele:%n",
-            footer = {
-                    "  minicdn admin user remove --id 42 --force"
-            })
+            footer = {"  minicdn admin user remove --id 42 --force"})
     public static final class AdminUserRemoveCommand implements Runnable {
 
         @ParentCommand
@@ -173,10 +180,8 @@ public final class AdminUserMgmtCommand implements Runnable {
         @Option(names = "--id", description = "User ID to remove")
         private Long userId;
 
-
         @Option(names = "--force", description = "Do not ask for confirmation")
         private boolean force;
-
 
         @Override
         public void run() {
@@ -197,8 +202,12 @@ public final class AdminUserMgmtCommand implements Runnable {
                 }
 
                 if (svc.removeUser(userId)) {
-                    ConsoleUtils.info(parent.ctx.out(), "[ADMIN] Removed user: id=%s name=%s role=%s",
-                            existing.get("id"), existing.get("name"), existing.get("role"));
+                    ConsoleUtils.info(
+                            parent.ctx.out(),
+                            "[ADMIN] Removed user: id=%s name=%s role=%s",
+                            existing.get("id"),
+                            existing.get("name"),
+                            existing.get("role"));
                 } else {
                     ConsoleUtils.error(parent.ctx.err(), "[ADMIN] Failed to remove user: %s", target);
                 }
@@ -208,8 +217,11 @@ public final class AdminUserMgmtCommand implements Runnable {
         }
 
         private boolean confirmRemoval(String target, Map<String, Object> user) {
-            parent.ctx.out().printf("[ADMIN] Removing user: %s (id=%s name=%s role=%s)%n",
-                    target, user.get("id"), user.get("name"), user.get("role"));
+            parent.ctx
+                    .out()
+                    .printf(
+                            "[ADMIN] Removing user: %s (id=%s name=%s role=%s)%n",
+                            target, user.get("id"), user.get("name"), user.get("role"));
             parent.ctx.out().print("[ADMIN] Are you sure? (y/N): ");
             parent.ctx.out().flush();
 
