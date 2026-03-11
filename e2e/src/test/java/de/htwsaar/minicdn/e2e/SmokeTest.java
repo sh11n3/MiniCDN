@@ -23,10 +23,9 @@ class SmokeTest extends AbstractE2E {
 
         byte[] data = new byte[150_000];
 
-        // HIER WAR DER FEHLER: Das Token muss "secret-token" sein!
         CLIENT.send(
                 HttpRequest.newBuilder(adminUri)
-                        .header("X-Admin-Token", "secret-token")
+                        .header("X-Admin-Token", ADMIN_TOKEN)
                         .PUT(HttpRequest.BodyPublishers.ofByteArray(data))
                         .header("Content-Type", "application/octet-stream")
                         .build(),
@@ -52,11 +51,11 @@ class SmokeTest extends AbstractE2E {
             assertTrue(timeMs < MAX_TIME_MS, "Too slow");
 
         } finally {
-            // 3) Datei wieder löschen
-            // AUCH HIER: Token auf "secret-token" anpassen!
+            //
+            //
             CLIENT.send(
                     HttpRequest.newBuilder(adminUri)
-                            .header("X-Admin-Token", "secret-token")
+                            .header("X-Admin-Token", ADMIN_TOKEN)
                             .DELETE()
                             .build(),
                     HttpResponse.BodyHandlers.discarding());
