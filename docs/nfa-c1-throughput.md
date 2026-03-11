@@ -4,10 +4,8 @@
 Nachweis, dass bei **2 Edge-Instanzen** der Durchsatz mindestens **1,5×** gegenüber **1 Edge-Instanz** beträgt.
 
 ## Wo liegt das Skript?
-- **Hauptimplementierung (plattformunabhängig):** `scripts/performance/test_throughput_1v2.py`
-- **Kompatible Einstiege:**
-  - `python test-throughput-1v2.py`
-  - `./test-throughput-1v2.sh` (delegiert intern auf Python)
+- **Empfohlener Ort:** `scripts/performance/test-throughput-1v2.sh`
+- **Kompatibler Root-Aufruf:** `./test-throughput-1v2.sh` (Wrapper, delegiert auf `scripts/performance/...`)
 
 ## Messprinzip
 - Lastziel: `GET /api/cdn/files/{path}?region=EU` am Router.
@@ -17,7 +15,7 @@ Nachweis, dass bei **2 Edge-Instanzen** der Durchsatz mindestens **1,5×** gegen
 
 ## Implementierte Ausführung
 Das Skript führt reproduzierbar aus:
-1. Services sicherstellen (optional Autostart über `startup-service.sh`).
+1. Services sicherstellen (startet sie bei Bedarf).
 2. Edge-Executable-JAR sicherstellen (`edge/target/edge-1.0-SNAPSHOT-exec.jar`).
 3. Baseline mit 1 Edge vorbereiten (EU → `http://localhost:8081`).
 4. Testdatei am Origin hochladen.
@@ -26,26 +24,23 @@ Das Skript führt reproduzierbar aus:
 7. Lastlauf mit 2 Edges.
 8. Verhältnis berechnen und per Exit-Code bewerten.
 
-## Wie führe ich es aus?
+## Wie führe ich sie aus? (IntelliJ-Terminal)
+Du kannst beide Varianten verwenden:
 
-### Windows (PowerShell / IntelliJ Terminal)
-```powershell
-python .\test-throughput-1v2.py
+```bash
+./test-throughput-1v2.sh
 ```
 
-### Linux/macOS
+oder direkt:
+
 ```bash
-python3 ./test-throughput-1v2.py
+bash scripts/performance/test-throughput-1v2.sh
 ```
 
-### Parameter-Beispiel
-```bash
-python3 ./test-throughput-1v2.py --duration-sec 30 --concurrency 60 --warmup-requests 300
-```
+Mit Parametern:
 
-Alternativ über Umgebungsvariablen:
 ```bash
-DURATION_SEC=30 CONCURRENCY=60 WARMUP_REQUESTS=300 python3 ./test-throughput-1v2.py
+DURATION_SEC=30 CONCURRENCY=60 WARMUP_REQUESTS=300 ./test-throughput-1v2.sh
 ```
 
 ## Wo sehe ich den Output?
@@ -53,16 +48,10 @@ DURATION_SEC=30 CONCURRENCY=60 WARMUP_REQUESTS=300 python3 ./test-throughput-1v2
 - **Optional zusätzlich in Datei:**
 
 ```bash
-python3 ./test-throughput-1v2.py | tee throughput-run.log
+./test-throughput-1v2.sh | tee throughput-run.log
 ```
 
-## Wichtige Hinweise
-- Standardmäßig startet das Skript Services **nicht automatisch**. Falls Router/Origin/Edge bereits laufen, ist keine weitere Aktion nötig.
-- Optionaler Auto-Start (wenn Bash + `startup-service.sh` vorhanden):
-
-```bash
-AUTO_START_SERVICES=true python3 ./test-throughput-1v2.py
-```
+Dann siehst du den Output in der Konsole **und** hast ihn in `throughput-run.log` gespeichert.
 
 ## CI-/Automations-Hinweis
 - Der Nachweis ist ein **Performance-/Lasttest**, kein Unit-Test.
