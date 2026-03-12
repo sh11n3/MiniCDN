@@ -22,11 +22,7 @@ import picocli.CommandLine.Spec;
         description = "Manage system users",
         mixinStandardHelpOptions = true,
         footerHeading = "%nBeispiele:%n",
-        footer = {
-            "  admin user add --name alice --role 1",
-            "  admin user list --role USER --page 1 --size 20",
-            "  admin user remove --id 42 --force"
-        },
+        footer = {"  admin user add --name alice --role 1", "  admin user list", "  admin user remove --id 42 --force"},
         subcommands = {
             AdminUserMgmtCommand.AddCommand.class,
             AdminUserMgmtCommand.ListCommand.class,
@@ -45,7 +41,13 @@ public class AdminUserMgmtCommand implements Runnable {
     public AdminUserMgmtCommand(CliContext ctx) {
         this.ctx = ctx;
         this.service = new AdminUserService(
-                ctx.transportClient(), ctx.defaultRequestTimeout(), ctx.routerBaseUrl(), ctx.adminToken());
+                ctx.transportClient(),
+                ctx.defaultRequestTimeout(),
+                ctx.routerBaseUrl(),
+                ctx.adminToken(),
+                ctx.sessionState().loggedInUserId() == null
+                        ? -1L
+                        : ctx.sessionState().loggedInUserId());
     }
 
     @Override
@@ -117,7 +119,7 @@ public class AdminUserMgmtCommand implements Runnable {
             description = "List users in the system",
             mixinStandardHelpOptions = true,
             footerHeading = "%nBeispiele:%n",
-            footer = {"  admin user list", "  admin user list --role 1 --page 1 --size 50"})
+            footer = {"  admin user list"})
     public static class ListCommand implements Runnable {
 
         @ParentCommand

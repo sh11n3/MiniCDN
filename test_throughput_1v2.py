@@ -80,6 +80,11 @@ def build_config(args: argparse.Namespace) -> BenchmarkConfig:
         edge_jar=args.edge_jar,
         auto_start_services=args.auto_start_services,
     )
+    
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Prevent urllib from automatically following redirects."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 def request(
@@ -101,8 +106,7 @@ def request(
     if content_type:
         req.add_header("Content-Type", content_type)
 
-    opener = urllib.request.build_opener(urllib.request.HTTPHandler())
-    opener.add_handler(urllib.request.HTTPRedirectHandler())
+    opener = urllib.request.build_opener(_NoRedirectHandler)
     try:
         with opener.open(req, timeout=timeout) as response:
             return int(response.status), response.read()
@@ -172,7 +176,9 @@ def upload_test_file(config: BenchmarkConfig) -> None:
     """Upload fixed benchmark payload to origin."""
     url = f"{config.origin_base}/api/origin/admin/files/{config.test_file}"
     payload = b"nfa-c1 benchmark payload"
-    require_status("PUT", url, expected=200, token=config.token, data=payload, content_type="application/octet-stream")
+    status, _ = request("PUT", url, token=config.token, data=payload, content_type="application/octet-stream")
+    if status not in (200, 201, 204):
+        raise BenchmarkError(f"Upload failed with HTTP {status}")
 
 
 def warmup_router(config: BenchmarkConfig, client_prefix: str) -> None:
@@ -232,7 +238,7 @@ def start_second_edge(config: BenchmarkConfig) -> str:
     body = require_status(
         "POST",
         url,
-        expected=200,
+        expected=201,
         token=config.token,
         data=json.dumps(payload).encode("utf-8"),
         content_type="application/json",
