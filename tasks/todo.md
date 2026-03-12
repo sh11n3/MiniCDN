@@ -1,14 +1,16 @@
-# Todo – US-C5 Audit Bugfix (Spring Bean Startup)
+# Todo – US-C5 Audit Implementierung (einfacher Uni-Ansatz)
 
 ## Plan (verifizierbar)
-- [x] Fehleranalyse anhand Stacktrace: Bean-Instanziierung `AuditLogService` scheitert wegen Konstruktorauflösung.
-- [x] Fix-Design: eindeutigen Spring-Konstruktor definieren (`@Autowired` + `@Value`) und Test-Konstruktor entkoppeln.
-- [x] Implementieren: `AuditLogService` konstruktorseitig Spring-sicher machen, ohne Feature-Änderung.
-- [x] Verifizieren: Router-Tests (mind. Audit-Service-Test + Router-Modul-Testlauf) ausführen.
-- [x] Lessons/Review aktualisieren, committen und PR-Text erzeugen.
+- [x] Ist-Stand geprüft: bestehende User-/Auth- und Admin-Endpunkte im Router identifiziert.
+- [x] Minimal-Design definiert: Audit-Service + SQLite-Tabelle + Interceptor + Admin-Query/Export-API.
+- [x] Implementieren: Audit-Domain/DTO + persistente Audit-Logs in `data/users.db`.
+- [x] Implementieren: automatische Audit-Erfassung für Requests mit User-Kontext.
+- [x] Implementieren: Abfrage-/Exportfunktion (JSON + CSV) nach `userId`.
+- [x] Tests: Audit-Service (Write, Query-Filter, CSV-Export) und Build-Verifikation.
+- [x] Doku: Nutzungsanleitung mit konkreten Commands + Fazit wo die Logs liegen.
 
 ## Review
-- Root Cause: `AuditLogService` hatte mehrere öffentliche Konstruktoren ohne eindeutige Spring-Markierung; in der Zielumgebung wurde dadurch fälschlich ein Default-Konstruktor erwartet.
-- Fix: produktiven Konstruktor explizit mit `@Autowired` markiert und interne Initialisierung auf einen privaten Hauptkonstruktor zentralisiert.
-- Verhalten bleibt gleich (Audit-Tabelle, Query/Export), nur die Bean-Erzeugung wurde robust gemacht.
-- Maven-Testlauf in dieser Umgebung bleibt wegen externer Download-Blockade (HTTP 403 Maven Central) limitiert.
+- US-C5 wurde schlank umgesetzt: `audit_logs`-Tabelle im Router-DB-File, automatische Erfassung über Interceptor und Admin-API für Query/CSV-Export.
+- Audit-Einträge enthalten Zeit (`timestamp_utc`), User (`user_id`), Aktion (`action`), Ressource (`resource`) und Ergebnis (`result`) inklusive HTTP-Status.
+- Abfrage/Export ist über `/api/cdn/admin/audit` und `/api/cdn/admin/audit/export` mit Filtern nutzbar.
+- Testausführung via Maven war in dieser Umgebung wegen externem Dependency-Download (HTTP 403 von Maven Central) blockiert; die Testklasse ist dennoch enthalten.

@@ -11,7 +11,6 @@ import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.sqlite.SQLiteDataSource;
@@ -29,30 +28,26 @@ public class AuditLogService {
     private final Clock clock;
 
     /**
-     * Eindeutiger Spring-Konstruktor für die Produktivverdrahtung.
+     * Erzeugt den Service über die konfigurierte JDBC-URL.
      *
      * @param jdbcUrl JDBC-URL (z. B. jdbc:sqlite:data/users.db)
+     * @throws Exception falls die Datenquelle nicht initialisiert werden kann
      */
-    @Autowired
-    public AuditLogService(@Value("${app.jdbc.url}") String jdbcUrl) {
-        this(createDslContext(jdbcUrl), Clock.systemUTC());
+    public AuditLogService(@Value("${app.jdbc.url}") String jdbcUrl) throws Exception {
+        this(jdbcUrl, Clock.systemUTC());
     }
 
     /**
-     * Test-/Factory-Konstruktor mit expliziter Clock.
+     * Erzeugt den Service mit expliziter Uhr (für Tests).
      *
      * @param jdbcUrl JDBC-URL
      * @param clock Clock für deterministische Zeitstempel
+     * @throws Exception falls die Datenquelle nicht initialisiert werden kann
      */
-    public AuditLogService(String jdbcUrl, Clock clock) {
-        this(createDslContext(jdbcUrl), clock);
-    }
-
-    /**
-     * Interner Hauptkonstruktor.
-     */
-    private AuditLogService(DSLContext dsl, Clock clock) {
-        this.dsl = Objects.requireNonNull(dsl, "dsl must not be null");
+    public AuditLogService(String jdbcUrl, Clock clock) throws Exception {
+        SQLiteDataSource ds = new SQLiteDataSource();
+        ds.setUrl(jdbcUrl);
+        this.dsl = DSL.using(ds, SQLDialect.SQLITE);
         this.clock = Objects.requireNonNull(clock, "clock must not be null");
         initSchema();
     }
@@ -60,19 +55,10 @@ public class AuditLogService {
     /**
      * Komfort-Factory für lokale/verteilte Skriptläufe.
      */
-    public static AuditLogService fromProjectDb() {
+    public static AuditLogService fromProjectDb() throws Exception {
         Path dbFile = Path.of("data", "users.db").toAbsolutePath();
         String jdbcUrl = "jdbc:sqlite:" + dbFile;
         return new AuditLogService(jdbcUrl, Clock.systemUTC());
-    }
-
-    /**
-     * Erzeugt einen SQLite-basierten jOOQ-DSL-Context.
-     */
-    private static DSLContext createDslContext(String jdbcUrl) {
-        SQLiteDataSource ds = new SQLiteDataSource();
-        ds.setUrl(Objects.requireNonNull(jdbcUrl, "jdbcUrl must not be null"));
-        return DSL.using(ds, SQLDialect.SQLITE);
     }
 
     /**
@@ -178,6 +164,7 @@ public class AuditLogService {
         dsl.execute("CREATE INDEX IF NOT EXISTS idx_audit_logs_user_time ON audit_logs(user_id, timestamp_utc)");
     }
 
+
     /**
      * Liest eine Number robust als long.
      */
@@ -191,7 +178,6 @@ public class AuditLogService {
     private static int readInt(Number value) {
         return value == null ? 0 : value.intValue();
     }
-
     /**
      * Parst einen ISO-Zeitstempel robust und fällt bei Fehlern auf die Epochenzeit zurück.
      */
