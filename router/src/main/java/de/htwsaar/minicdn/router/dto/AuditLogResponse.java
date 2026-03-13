@@ -11,9 +11,4 @@ package de.htwsaar.minicdn.router.dto;
  * @param httpStatus HTTP-Statuscode
  */
 public record AuditLogResponse(
-        String timestamp,
-        long userId,
-        String action,
-        String resource,
-        String result,
-        int httpStatus) {}
+        String timestamp, long userId, String action, String resource, String result, int httpStatus) {}

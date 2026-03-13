@@ -24,7 +24,8 @@ public class AuditLoggingInterceptor implements HandlerInterceptor {
      * sofern ein gültiger User-Kontext vorhanden ist.
      */
     @Override
-    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
+    public void afterCompletion(
+            HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
         long userId = parseUserId(request.getHeader(USER_ID_HEADER));
         if (userId <= 0) {
             return;

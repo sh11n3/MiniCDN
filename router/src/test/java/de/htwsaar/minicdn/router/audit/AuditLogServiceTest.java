@@ -28,7 +28,8 @@ class AuditLogServiceTest {
         clock.plusSeconds(10);
         service.append(8L, "GET /api/cdn/admin/users", "/api/cdn/admin/users", 200);
 
-        List<AuditLogEntry> onlyFailures = service.query(new AuditQueryFilter(7L, null, null, null, AuditResult.FAILURE));
+        List<AuditLogEntry> onlyFailures =
+                service.query(new AuditQueryFilter(7L, null, null, null, AuditResult.FAILURE));
 
         assertEquals(1, onlyFailures.size());
         assertEquals(7L, onlyFailures.get(0).userId());

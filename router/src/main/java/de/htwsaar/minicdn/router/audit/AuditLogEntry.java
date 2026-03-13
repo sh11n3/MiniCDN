@@ -13,9 +13,4 @@ import java.time.Instant;
  * @param httpStatus HTTP-Statuscode der Aktion
  */
 public record AuditLogEntry(
-        Instant timestamp,
-        long userId,
-        String action,
-        String resource,
-        AuditResult result,
-        int httpStatus) {}
+        Instant timestamp, long userId, String action, String resource, AuditResult result, int httpStatus) {}

@@ -11,6 +11,7 @@ import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DSL;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.sqlite.SQLiteDataSource;
@@ -33,7 +34,8 @@ public class AuditLogService {
      * @param jdbcUrl JDBC-URL (z. B. jdbc:sqlite:data/users.db)
      * @throws Exception falls die Datenquelle nicht initialisiert werden kann
      */
-    public AuditLogService(@Value("${app.jdbc.url}") String jdbcUrl) throws Exception {
+    @Autowired
+    public AuditLogService(@Value("${app.audit.jdbc.url}") String jdbcUrl) throws Exception {
         this(jdbcUrl, Clock.systemUTC());
     }
 
@@ -56,7 +58,7 @@ public class AuditLogService {
      * Komfort-Factory für lokale/verteilte Skriptläufe.
      */
     public static AuditLogService fromProjectDb() throws Exception {
-        Path dbFile = Path.of("data", "users.db").toAbsolutePath();
+        Path dbFile = Path.of("data", "audit.db").toAbsolutePath();
         String jdbcUrl = "jdbc:sqlite:" + dbFile;
         return new AuditLogService(jdbcUrl, Clock.systemUTC());
     }
@@ -134,12 +136,18 @@ public class AuditLogService {
         StringBuilder csv = new StringBuilder();
         csv.append("timestamp,userId,action,resource,result,httpStatus\n");
         for (AuditLogEntry entry : entries) {
-            csv.append(escapeCsv(entry.timestamp().toString())).append(',')
-                    .append(entry.userId()).append(',')
-                    .append(escapeCsv(entry.action())).append(',')
-                    .append(escapeCsv(entry.resource())).append(',')
-                    .append(entry.result().name()).append(',')
-                    .append(entry.httpStatus()).append('\n');
+            csv.append(escapeCsv(entry.timestamp().toString()))
+                    .append(',')
+                    .append(entry.userId())
+                    .append(',')
+                    .append(escapeCsv(entry.action()))
+                    .append(',')
+                    .append(escapeCsv(entry.resource()))
+                    .append(',')
+                    .append(entry.result().name())
+                    .append(',')
+                    .append(entry.httpStatus())
+                    .append('\n');
         }
         return csv.toString();
     }
@@ -163,7 +171,6 @@ public class AuditLogService {
 
         dsl.execute("CREATE INDEX IF NOT EXISTS idx_audit_logs_user_time ON audit_logs(user_id, timestamp_utc)");
     }
-
 
     /**
      * Liest eine Number robust als long.

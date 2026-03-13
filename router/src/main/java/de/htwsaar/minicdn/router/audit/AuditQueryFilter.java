@@ -11,9 +11,4 @@ import java.time.Instant;
  * @param action exakte Action-Filterung (optional)
  * @param result Ergebnisfilter (optional)
  */
-public record AuditQueryFilter(
-        long userId,
-        Instant from,
-        Instant to,
-        String action,
-        AuditResult result) {}
+public record AuditQueryFilter(long userId, Instant from, Instant to, String action, AuditResult result) {}

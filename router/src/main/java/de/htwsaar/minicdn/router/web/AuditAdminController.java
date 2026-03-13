@@ -40,11 +40,7 @@ public class AuditAdminController {
             @RequestParam(value = "result", required = false) String result) {
 
         AuditQueryFilter filter = new AuditQueryFilter(
-                userId,
-                parseInstant(from),
-                parseInstant(to),
-                sanitize(action),
-                parseResult(result));
+                userId, parseInstant(from), parseInstant(to), sanitize(action), parseResult(result));
 
         List<AuditLogResponse> response = auditLogService.query(filter).stream()
                 .map(entry -> new AuditLogResponse(
@@ -71,11 +67,7 @@ public class AuditAdminController {
             @RequestParam(value = "result", required = false) String result) {
 
         AuditQueryFilter filter = new AuditQueryFilter(
-                userId,
-                parseInstant(from),
-                parseInstant(to),
-                sanitize(action),
-                parseResult(result));
+                userId, parseInstant(from), parseInstant(to), sanitize(action), parseResult(result));
 
         String csv = auditLogService.exportCsv(filter);
 
