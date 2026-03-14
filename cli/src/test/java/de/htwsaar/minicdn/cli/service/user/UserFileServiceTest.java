@@ -34,20 +34,4 @@ class UserFileServiceTest {
     void splitIntoSegments_rejectsNonPositiveSize() {
         assertThrows(IllegalArgumentException.class, () -> UserFileService.splitIntoSegments(0, 2));
     }
-
-    /**
-     * Prüft, dass bei mehr gewünschten Segmenten als Bytes auf die Dateigröße gecappt wird.
-     */
-    @Test
-    void splitIntoSegments_capsAtTotalSize() {
-        List<UserFileService.SegmentPlan> plans = UserFileService.splitIntoSegments(3, 10);
-
-        assertEquals(3, plans.size());
-        assertEquals(0, plans.get(0).start());
-        assertEquals(0, plans.get(0).end());
-        assertEquals(1, plans.get(1).start());
-        assertEquals(1, plans.get(1).end());
-        assertEquals(2, plans.get(2).start());
-        assertEquals(2, plans.get(2).end());
-    }
 }

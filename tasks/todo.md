@@ -1,16 +1,16 @@
-# TODO – US-C4 Segmentiertes Laden (Nachschärfung CLI-Feedback + Help)
+# TODO – US-C4 Segmentiertes Laden
 
 ## Plan
-- [x] Bestehende `download-segmented` Implementierung und CLI-Help auf aktualisiertem Projektstand prüfen.
-- [x] CLI-Hilfetexte auf Default-Host-Nutzung ausrichten (ohne erzwungenes `-H`) und Beispiele für Segmentierung ergänzen.
-- [x] Sichtbares, segmentbezogenes CLI-Feedback beim segmentierten Download ergänzen (Retries + erfolgreiche Segmente).
-- [x] Validierung für `--segments`/`--retries` auf Command-Ebene klar erzwingen und Common-Utilities konsistent nutzen.
-- [x] Relevante Unit-Tests für Segmentierungslogik ergänzen und lokal ausführen.
+- [x] Ist-Analyse der Download- und Adapter-Struktur durchführen (CLI/Router/Edge).
+- [x] Segment-Download im CLI als einfachen, testbaren Befehl ergänzen (parallel + Retry).
+- [x] Edge-Download-Endpoint für Byte-Range unterstützen, damit echte Segment-Requests möglich sind.
+- [x] Fehlerhafte/ungültige Segmente erkennen und Retry implementieren.
+- [x] Minimale Tests und Build-Checks ausführen.
+- [x] Testanleitung dokumentieren.
 
 ## Review
-- Die Help-Footer für `user file` und `user file download` wurden auf den aktuellen Default-Host-Flow umgestellt (ohne Pflicht für `-H`) und um segmentierte Beispiele ergänzt.
-- `download-segmented` zeigt jetzt im CLI sichtbar, dass segmentiert geladen wird: Modus-Info, Retry-Events pro Segment und erfolgreiche Segmentbereiche inkl. Edge-Quelle.
-- Command-seitige Eingabevalidierung für `--segments` (>0) und `--retries` (>=0) wurde ergänzt.
-- Im Service wurde ein optionaler `SegmentProgressListener` eingeführt, um Fortschritt sauber an die CLI zu melden, ohne Service/Adapter-Grenzen zu brechen.
-- Die Remote-Pfad-Normalisierung nutzt konsistent `PathUtils.normalizeRelativePath` aus `common`.
-- Ein zusätzlicher Unit-Test deckt Segment-Capping auf Dateigröße ab.
+- Segmentierter Download wurde als neuer CLI-Befehl `user file download-segmented` ergänzt.
+- Segmente können per Router dynamisch auf Edge-URLs verteilt oder über `--edge` explizit auf mehrere Edges gelegt werden.
+- Ungültige Segmente (Status/Länge) führen zu Retry je Segment.
+- Edge unterstützt nun Byte-Range-Requests (`Range`) mit `206 Partial Content` + `Content-Range`.
+- Build/Test konnte wegen externer Maven-Repository-Restriction (HTTP 403 auf Maven Central) nicht vollständig ausgeführt werden.

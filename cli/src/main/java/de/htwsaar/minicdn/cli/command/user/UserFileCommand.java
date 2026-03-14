@@ -365,7 +365,7 @@ public final class UserFileCommand implements Runnable {
             footer = {
                 "  user file download-segmented -r EU docs/manual.pdf -o ./manual.pdf --segments 4",
                 "  user file download-segmented -r EU docs/manual.pdf -o ./manual.pdf --segments 6 --retries 3",
-                "  user file download-segmented -r EU docs/manual.pdf -o ./manual.pdf --segments 6 --edge http://localhost:8083 --edge http://localhost:8084"
+                "  user file download-segmented -r EU docs/manual.pdf -o ./manual.pdf --edge http://localhost:8083 --edge http://localhost:8084"
             })
     public static final class FileSegmentedDownloadCommand implements Callable<Integer> {
 
@@ -444,27 +444,10 @@ public final class UserFileCommand implements Runnable {
                 String cleanRemotePath = parent.normalizeRemotePath(remotePath);
                 String cleanRegion = parent.normalizeRegion(region);
                 String cleanClientId = parent.normalizeClientId(clientId);
-                int cleanSegments = parent.validateSegments(segments);
-                int cleanRetries = parent.validateRetries(retries);
                 Long loggedInUserId = parent.ctx.sessionState().loggedInUserId();
                 Path targetFile = Objects.requireNonNull(out, "out").toAbsolutePath().normalize();
 
                 parent.validateOutputFile(targetFile, overwrite);
-
-                if (edges == null || edges.isEmpty()) {
-                    ConsoleUtils.info(
-                            parent.ctx.out(),
-                            "[FILE] Segmented mode: %d segments, %d retries, edge selection via router per segment",
-                            cleanSegments,
-                            cleanRetries);
-                } else {
-                    ConsoleUtils.info(
-                            parent.ctx.out(),
-                            "[FILE] Segmented mode: %d segments, %d retries, fixed edges=%s",
-                            cleanSegments,
-                            cleanRetries,
-                            edges);
-                }
 
                 DownloadResult result = parent.downloadService().downloadSegmentedViaEdges(
                         routerBaseUrl,
@@ -474,32 +457,9 @@ public final class UserFileCommand implements Runnable {
                         loggedInUserId,
                         targetFile,
                         overwrite,
-                        cleanSegments,
-                        cleanRetries,
-                        edges,
-                        new UserFileService.SegmentProgressListener() {
-                            @Override
-                            public void onSegmentRetry(int index, int attempt, int maxAttempts, String reason) {
-                                ConsoleUtils.info(
-                                        parent.ctx.out(),
-                                        "[FILE] Segment %d retry %d/%d (%s)",
-                                        index,
-                                        attempt,
-                                        maxAttempts,
-                                        reason);
-                            }
-
-                            @Override
-                            public void onSegmentDone(int index, long start, long end, URI edgeLocation) {
-                                ConsoleUtils.info(
-                                        parent.ctx.out(),
-                                        "[FILE] Segment %d done bytes=%d-%d from %s",
-                                        index,
-                                        start,
-                                        end,
-                                        edgeLocation);
-                            }
-                        });
+                        segments,
+                        retries,
+                        edges);
 
                 return parent.handleDownloadResult(cleanRemotePath, targetFile, result);
             } catch (IllegalArgumentException ex) {

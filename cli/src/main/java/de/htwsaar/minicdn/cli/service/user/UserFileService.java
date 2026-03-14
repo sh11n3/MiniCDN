@@ -8,8 +8,6 @@ import de.htwsaar.minicdn.cli.transport.TransportResponse;
 import de.htwsaar.minicdn.common.util.PathUtils;
 import de.htwsaar.minicdn.common.util.UriUtils;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -71,32 +69,6 @@ public final class UserFileService {
     private static final String HEADER_RANGE = "Range";
 
     /**
-     * Callback-Schnittstelle für optionales Fortschritts-Reporting beim Segment-Download.
-     */
-    public interface SegmentProgressListener {
-
-        /**
-         * Wird bei einem Retry für ein Segment aufgerufen.
-         *
-         * @param index Segmentindex
-         * @param attempt aktuelle Retry-Nummer (startet bei 1)
-         * @param maxAttempts maximale Anzahl Versuche
-         * @param reason Grund des Retries
-         */
-        default void onSegmentRetry(int index, int attempt, int maxAttempts, String reason) {}
-
-        /**
-         * Wird nach erfolgreichem Segment-Download aufgerufen.
-         *
-         * @param index Segmentindex
-         * @param start Startbyte inklusiv
-         * @param end Endbyte inklusiv
-         * @param edgeLocation Edge-URL, von der das Segment geladen wurde
-         */
-        default void onSegmentDone(int index, long start, long end, URI edgeLocation) {}
-    }
-
-    /**
      * Lädt eine Datei über den Router herunter.
      *
      * @param routerBaseUrl Basis-URL des Routers
@@ -139,48 +111,6 @@ public final class UserFileService {
             int segmentCount,
             int maxRetries,
             List<URI> preferredEdgeBaseUrls) {
-        return downloadSegmentedViaEdges(
-                routerBaseUrl,
-                remotePath,
-                region,
-                clientId,
-                userId,
-                out,
-                overwrite,
-                segmentCount,
-                maxRetries,
-                preferredEdgeBaseUrls,
-                null);
-    }
-
-    /**
-     * Lädt eine Datei segmentiert und parallel von mehreren Edge-Knoten.
-     *
-     * @param routerBaseUrl Basis-URL des Routers
-     * @param remotePath relativer Remote-Pfad
-     * @param region Client-Region
-     * @param clientId optionale Client-ID
-     * @param userId optionale User-ID
-     * @param out lokale Ausgabedatei
-     * @param overwrite bestehende Datei überschreiben
-     * @param segmentCount Anzahl Segmente/Parallelität
-     * @param maxRetries maximale Wiederholversuche je Segment
-     * @param preferredEdgeBaseUrls optionale Edge-Basis-URLs; wenn leer, wird pro Segment eine Route vom Router geholt
-     * @param progressListener optionaler Listener für Segment-Fortschritt
-     * @return Download-Ergebnis
-     */
-    public DownloadResult downloadSegmentedViaEdges(
-            URI routerBaseUrl,
-            String remotePath,
-            String region,
-            String clientId,
-            Long userId,
-            Path out,
-            boolean overwrite,
-            int segmentCount,
-            int maxRetries,
-            List<URI> preferredEdgeBaseUrls,
-            SegmentProgressListener progressListener) {
 
         Objects.requireNonNull(out, "out");
         String cleanRemotePath = normalizeRemotePath(remotePath);
@@ -197,15 +127,7 @@ public final class UserFileService {
             Path tempDir = Files.createTempDirectory("minicdn-segments-");
             try {
                 List<Path> segmentFiles = fetchSegmentsParallel(
-                        plans,
-                        edgeLocations,
-                        cleanRemotePath,
-                        tempDir,
-                        cleanRetries,
-                        cleanRegion,
-                        clientId,
-                        userId,
-                        progressListener);
+                        plans, edgeLocations, cleanRemotePath, tempDir, cleanRetries, cleanRegion, clientId, userId);
 
                 assembleSegments(segmentFiles, out, overwrite);
                 return DownloadResult.ok(200, Files.size(out));
@@ -321,8 +243,7 @@ public final class UserFileService {
             int retries,
             String region,
             String clientId,
-            Long userId,
-            SegmentProgressListener progressListener) {
+            Long userId) {
 
         ExecutorService executor = Executors.newFixedThreadPool(Math.min(plans.size(), 8));
         try {
@@ -330,15 +251,7 @@ public final class UserFileService {
             for (int i = 0; i < plans.size(); i++) {
                 SegmentPlan plan = plans.get(i);
                 URI location = locations.get(i);
-                futures.add(executor.submit(() -> fetchSingleSegment(
-                        plan,
-                        location,
-                        tempDir,
-                        retries,
-                        region,
-                        clientId,
-                        userId,
-                        progressListener)));
+                futures.add(executor.submit(() -> fetchSingleSegment(plan, location, tempDir, retries, region, clientId, userId)));
             }
 
             List<Path> files = new ArrayList<>();
@@ -358,14 +271,7 @@ public final class UserFileService {
      * Lädt ein einzelnes Segment mit Retry bei invaliden oder fehlgeschlagenen Antworten.
      */
     private Path fetchSingleSegment(
-            SegmentPlan plan,
-            URI location,
-            Path tempDir,
-            int retries,
-            String region,
-            String clientId,
-            Long userId,
-            SegmentProgressListener progressListener)
+            SegmentPlan plan, URI location, Path tempDir, int retries, String region, String clientId, Long userId)
             throws IOException {
 
         Path partPath = tempDir.resolve(String.format("part-%05d.bin", plan.index()));
@@ -376,27 +282,15 @@ public final class UserFileService {
         for (int attempt = 0; attempt <= retries; attempt++) {
             DownloadResult result = transportClient.download(request, partPath, true);
             if (result.error() != null) {
-                notifyRetry(progressListener, plan, attempt, retries + 1, result.error());
                 continue;
             }
 
             long expectedLength = plan.end() - plan.start() + 1;
             long actualLength = Files.size(partPath);
-            boolean validStatus = Integer.valueOf(206).equals(result.statusCode())
-                    || (plan.start() == 0 && Integer.valueOf(200).equals(result.statusCode()));
+            boolean validStatus = Integer.valueOf(206).equals(result.statusCode()) || (plan.start() == 0 && Integer.valueOf(200).equals(result.statusCode()));
             if (validStatus && actualLength == expectedLength) {
-                if (progressListener != null) {
-                    progressListener.onSegmentDone(plan.index(), plan.start(), plan.end(), location);
-                }
                 return partPath;
             }
-
-            notifyRetry(
-                    progressListener,
-                    plan,
-                    attempt,
-                    retries + 1,
-                    "invalid segment response: status=" + result.statusCode() + ", bytes=" + actualLength);
         }
 
         throw new IllegalStateException("segment " + plan.index() + " failed after retries");
@@ -418,23 +312,9 @@ public final class UserFileService {
         if (overwrite) {
             Files.deleteIfExists(out);
         }
-        try (OutputStream outputStream =
-                Files.newOutputStream(out, StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
-            for (Path segmentFile : segmentFiles) {
-                try (InputStream inputStream = Files.newInputStream(segmentFile)) {
-                    inputStream.transferTo(outputStream);
-                }
-            }
-        }
-    }
-
-    /**
-     * Benachrichtigt optional über einen Segment-Retry.
-     */
-    private static void notifyRetry(
-            SegmentProgressListener progressListener, SegmentPlan plan, int attempt, int maxAttempts, String reason) {
-        if (progressListener != null && attempt < maxAttempts - 1) {
-            progressListener.onSegmentRetry(plan.index(), attempt + 1, maxAttempts, reason);
+        for (Path segmentFile : segmentFiles) {
+            byte[] bytes = Files.readAllBytes(segmentFile);
+            Files.write(out, bytes, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         }
     }
 
