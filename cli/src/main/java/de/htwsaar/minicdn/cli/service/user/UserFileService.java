@@ -208,7 +208,8 @@ public final class UserFileService {
         if (preferredEdgeBaseUrls != null && !preferredEdgeBaseUrls.isEmpty()) {
             List<URI> locations = new ArrayList<>(segmentCount);
             for (int i = 0; i < segmentCount; i++) {
-                URI edgeBase = UriUtils.ensureTrailingSlash(preferredEdgeBaseUrls.get(i % preferredEdgeBaseUrls.size()));
+                URI edgeBase =
+                        UriUtils.ensureTrailingSlash(preferredEdgeBaseUrls.get(i % preferredEdgeBaseUrls.size()));
                 locations.add(edgeBase.resolve("api/edge/files/" + remotePath));
             }
             return locations;
@@ -219,7 +220,8 @@ public final class UserFileService {
 
         List<URI> locations = new ArrayList<>(segmentCount);
         for (int i = 0; i < segmentCount; i++) {
-            TransportResponse response = nonRedirectTransportClient.send(TransportRequest.get(routingUri, requestTimeout, headers));
+            TransportResponse response =
+                    nonRedirectTransportClient.send(TransportRequest.get(routingUri, requestTimeout, headers));
             if (response.error() != null) {
                 throw new IllegalStateException("routing failed: " + response.error());
             }
@@ -251,7 +253,8 @@ public final class UserFileService {
             for (int i = 0; i < plans.size(); i++) {
                 SegmentPlan plan = plans.get(i);
                 URI location = locations.get(i);
-                futures.add(executor.submit(() -> fetchSingleSegment(plan, location, tempDir, retries, region, clientId, userId)));
+                futures.add(executor.submit(
+                        () -> fetchSingleSegment(plan, location, tempDir, retries, region, clientId, userId)));
             }
 
             List<Path> files = new ArrayList<>();
@@ -287,7 +290,8 @@ public final class UserFileService {
 
             long expectedLength = plan.end() - plan.start() + 1;
             long actualLength = Files.size(partPath);
-            boolean validStatus = Integer.valueOf(206).equals(result.statusCode()) || (plan.start() == 0 && Integer.valueOf(200).equals(result.statusCode()));
+            boolean validStatus = Integer.valueOf(206).equals(result.statusCode())
+                    || (plan.start() == 0 && Integer.valueOf(200).equals(result.statusCode()));
             if (validStatus && actualLength == expectedLength) {
                 return partPath;
             }

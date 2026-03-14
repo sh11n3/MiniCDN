@@ -199,7 +199,7 @@ public final class UserFileCommand implements Runnable {
      * @return Exit-Code für Validierungsfehler
      */
     int validationError(String message) {
-        ConsoleUtils.error(ctx.err(), "[FILE] %s", Objects.toString(message, "invalid input"));
+        ConsoleUtils.error(ctx.err(), "[USER] %s", Objects.toString(message, "invalid input"));
         return VALIDATION.code();
     }
 
@@ -210,19 +210,20 @@ public final class UserFileCommand implements Runnable {
      * @return Exit-Code für technische Fehler
      */
     int requestFailed(String message) {
-        ConsoleUtils.error(ctx.err(), "[FILE] %s", Objects.toString(message, "request failed"));
+        ConsoleUtils.error(ctx.err(), "[USER] %s", Objects.toString(message, "request failed"));
         return REQUEST_FAILED.code();
     }
 
     /**
      * Bewertet das Download-Ergebnis zentral und gibt den passenden Exit-Code zurück.
      *
+     * @param routerBaseUrl normalisierte Router-Basis-URL
      * @param remotePath normalisierter Remote-Pfad
      * @param outFile lokale Zieldatei
      * @param result Ergebnis des Download-Aufrufs
      * @return passender Exit-Code
      */
-    int handleDownloadResult(String remotePath, Path outFile, DownloadResult result) {
+    int handleDownloadResult(URI routerBaseUrl, String remotePath, Path outFile, DownloadResult result) {
         Objects.requireNonNull(result, "result");
 
         if (result.error() != null) {
@@ -232,16 +233,22 @@ public final class UserFileCommand implements Runnable {
         Integer statusCode = Objects.requireNonNull(result.statusCode(), "statusCode");
         if (result.is2xx()) {
             ConsoleUtils.info(
-                    ctx.out(), "[FILE] Downloaded '%s' -> %s (%d bytes)", remotePath, outFile, result.bytesWritten());
+                    ctx.out(),
+                    "[USER] Download via router successful HTTP %d router=%s path=%s out=%s bytes=%d",
+                    statusCode,
+                    routerBaseUrl,
+                    remotePath,
+                    outFile,
+                    result.bytesWritten());
             return SUCCESS.code();
         }
 
         if (result.is4xx()) {
-            ConsoleUtils.error(ctx.err(), "[FILE] Request rejected (HTTP %d) for '%s'", statusCode, remotePath);
+            ConsoleUtils.error(ctx.err(), "[USER] Request rejected (HTTP %d) for '%s'", statusCode, remotePath);
             return REJECTED.code();
         }
 
-        ConsoleUtils.error(ctx.err(), "[FILE] Server error (HTTP %d) for '%s'", statusCode, remotePath);
+        ConsoleUtils.error(ctx.err(), "[USER] Server error (HTTP %d) for '%s'", statusCode, remotePath);
         return SERVER_ERROR.code();
     }
 
@@ -344,7 +351,7 @@ public final class UserFileCommand implements Runnable {
                                 targetFile,
                                 overwrite);
 
-                return parent.handleDownloadResult(cleanRemotePath, targetFile, result);
+                return parent.handleDownloadResult(routerBaseUrl, cleanRemotePath, targetFile, result);
 
             } catch (IllegalArgumentException ex) {
                 return parent.validationError(ex.getMessage());
@@ -445,23 +452,25 @@ public final class UserFileCommand implements Runnable {
                 String cleanRegion = parent.normalizeRegion(region);
                 String cleanClientId = parent.normalizeClientId(clientId);
                 Long loggedInUserId = parent.ctx.sessionState().loggedInUserId();
-                Path targetFile = Objects.requireNonNull(out, "out").toAbsolutePath().normalize();
+                Path targetFile =
+                        Objects.requireNonNull(out, "out").toAbsolutePath().normalize();
 
                 parent.validateOutputFile(targetFile, overwrite);
 
-                DownloadResult result = parent.downloadService().downloadSegmentedViaEdges(
-                        routerBaseUrl,
-                        cleanRemotePath,
-                        cleanRegion,
-                        cleanClientId,
-                        loggedInUserId,
-                        targetFile,
-                        overwrite,
-                        segments,
-                        retries,
-                        edges);
+                DownloadResult result = parent.downloadService()
+                        .downloadSegmentedViaEdges(
+                                routerBaseUrl,
+                                cleanRemotePath,
+                                cleanRegion,
+                                cleanClientId,
+                                loggedInUserId,
+                                targetFile,
+                                overwrite,
+                                segments,
+                                retries,
+                                edges);
 
-                return parent.handleDownloadResult(cleanRemotePath, targetFile, result);
+                return parent.handleDownloadResult(routerBaseUrl, cleanRemotePath, targetFile, result);
             } catch (IllegalArgumentException ex) {
                 return parent.validationError(ex.getMessage());
             } catch (Exception ex) {
