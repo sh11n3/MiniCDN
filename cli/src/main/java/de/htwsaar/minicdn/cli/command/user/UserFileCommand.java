@@ -16,6 +16,7 @@ import de.htwsaar.minicdn.common.util.UriUtils;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import picocli.CommandLine.Command;
@@ -38,11 +39,11 @@ import picocli.CommandLine.Spec;
         mixinStandardHelpOptions = true,
         footerHeading = "%nBeispiele:%n",
         footer = {
-            "  user file download -r EU docs/manual.pdf -o ./manual.pdf ",
-            "  user file download -r EU docs/manual.pdf -o ./manual.pdf -H http://localhost:8082 --client-id alice",
-            "  user file download -r EU docs/manual.pdf -o ./manual.pdf -H http://localhost:8082 --overwrite"
+            "  user file download -r EU docs/manual.pdf -o ./manual.pdf",
+            "  user file download -r EU docs/manual.pdf -o ./manual.pdf --client-id alice",
+            "  user file download-segmented -r EU docs/manual.pdf -o ./manual-seg.pdf --segments 4 --retries 2"
         },
-        subcommands = {UserFileCommand.FileDownloadCommand.class})
+        subcommands = {UserFileCommand.FileDownloadCommand.class, UserFileCommand.FileSegmentedDownloadCommand.class})
 public final class UserFileCommand implements Runnable {
 
     private final CliContext ctx;
@@ -166,6 +167,32 @@ public final class UserFileCommand implements Runnable {
     }
 
     /**
+     * Validiert die gewünschte Segmentanzahl.
+     *
+     * @param segments Segmentanzahl aus der CLI
+     * @return validierte Segmentanzahl
+     */
+    int validateSegments(int segments) {
+        if (segments <= 0) {
+            throw new IllegalArgumentException("--segments must be greater than 0");
+        }
+        return segments;
+    }
+
+    /**
+     * Validiert die Retry-Anzahl pro Segment.
+     *
+     * @param retries Retry-Anzahl aus der CLI
+     * @return validierte Retry-Anzahl
+     */
+    int validateRetries(int retries) {
+        if (retries < 0) {
+            throw new IllegalArgumentException("--retries must be greater than or equal to 0");
+        }
+        return retries;
+    }
+
+    /**
      * Gibt einen Validierungsfehler einheitlich aus.
      *
      * @param message Fehlermeldung
@@ -231,9 +258,9 @@ public final class UserFileCommand implements Runnable {
             mixinStandardHelpOptions = true,
             footerHeading = "%nBeispiele:%n",
             footer = {
-                "  user file download -r EU docs/manual.pdf -o ./manual.pdf -H http://localhost:8082",
-                "  user file download -r EU docs/manual.pdf -o ./manual.pdf -H http://localhost:8082 --client-id alice",
-                "  user file download -r EU docs/manual.pdf -o ./manual.pdf -H http://localhost:8082 --overwrite"
+                "  user file download -r EU docs/manual.pdf -o ./manual.pdf",
+                "  user file download -r EU docs/manual.pdf -o ./manual.pdf --client-id alice",
+                "  user file download -r EU docs/manual.pdf -o ./manual.pdf --overwrite"
             })
     public static final class FileDownloadCommand implements Callable<Integer> {
 
@@ -323,6 +350,162 @@ public final class UserFileCommand implements Runnable {
                 return parent.validationError(ex.getMessage());
             } catch (Exception ex) {
                 return parent.requestFailed("Download failed: " + ex.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Download-Command für segmentiertes, paralleles Laden über mehrere Edges.
+     */
+    @Command(
+            name = "download-segmented",
+            description = "Download a file in parallel segments (with retry)",
+            mixinStandardHelpOptions = true,
+            footerHeading = "%nBeispiele:%n",
+            footer = {
+                "  user file download-segmented -r EU docs/manual.pdf -o ./manual.pdf --segments 4",
+                "  user file download-segmented -r EU docs/manual.pdf -o ./manual.pdf --segments 6 --retries 3",
+                "  user file download-segmented -r EU docs/manual.pdf -o ./manual.pdf --segments 6 --edge http://localhost:8083 --edge http://localhost:8084"
+            })
+    public static final class FileSegmentedDownloadCommand implements Callable<Integer> {
+
+        @ParentCommand
+        private UserFileCommand parent;
+
+        /** Relativer Remote-Pfad der herunterzuladenden Datei. */
+        @Parameters(index = "0", paramLabel = "REMOTE_PATH", description = "Remote file path, e.g. docs/manual.pdf")
+        private String remotePath;
+
+        /** Lokale Zieldatei. */
+        @Option(
+                names = {"-o", "--out"},
+                required = true,
+                paramLabel = "OUT_FILE",
+                description = "Local output file path")
+        private Path out;
+
+        /** Router-Basis-URL. */
+        @Option(
+                names = {"-H", "--host"},
+                defaultValue = ROUTER_URL,
+                paramLabel = "ROUTER_URL",
+                description = "Router base URL (scheme://host:port)")
+        private URI host;
+
+        /** Client-Region für das Routing. */
+        @Option(
+                names = {"-r", "--region"},
+                required = true,
+                paramLabel = "REGION",
+                description = "Client region for routing, e.g. EU")
+        private String region;
+
+        /** Optionale Client-ID. */
+        @Option(
+                names = {"--client-id"},
+                paramLabel = "CLIENT_ID",
+                description = "Optional client id, e.g. alice")
+        private String clientId;
+
+        /** Anzahl der Segmente/Parallel-Downloads. */
+        @Option(
+                names = {"--segments"},
+                defaultValue = "4",
+                paramLabel = "N",
+                description = "Number of segments / parallel downloads")
+        private int segments;
+
+        /** Wiederholversuche pro Segment. */
+        @Option(
+                names = {"--retries"},
+                defaultValue = "2",
+                paramLabel = "N",
+                description = "Retry count for failed or invalid segments")
+        private int retries;
+
+        /** Optionale feste Edge-Knoten für Segment-Downloads. */
+        @Option(
+                names = {"--edge"},
+                paramLabel = "EDGE_URL",
+                description = "Optional edge base URL (can be repeated)")
+        private List<URI> edges;
+
+        /** Steuert, ob eine bestehende Datei überschrieben werden darf. */
+        @Option(
+                names = {"--overwrite"},
+                defaultValue = "false",
+                description = "Overwrite existing local file")
+        private boolean overwrite;
+
+        @Override
+        public Integer call() {
+            try {
+                URI routerBaseUrl = parent.normalizeRouter(host);
+                String cleanRemotePath = parent.normalizeRemotePath(remotePath);
+                String cleanRegion = parent.normalizeRegion(region);
+                String cleanClientId = parent.normalizeClientId(clientId);
+                int cleanSegments = parent.validateSegments(segments);
+                int cleanRetries = parent.validateRetries(retries);
+                Long loggedInUserId = parent.ctx.sessionState().loggedInUserId();
+                Path targetFile = Objects.requireNonNull(out, "out").toAbsolutePath().normalize();
+
+                parent.validateOutputFile(targetFile, overwrite);
+
+                if (edges == null || edges.isEmpty()) {
+                    ConsoleUtils.info(
+                            parent.ctx.out(),
+                            "[FILE] Segmented mode: %d segments, %d retries, edge selection via router per segment",
+                            cleanSegments,
+                            cleanRetries);
+                } else {
+                    ConsoleUtils.info(
+                            parent.ctx.out(),
+                            "[FILE] Segmented mode: %d segments, %d retries, fixed edges=%s",
+                            cleanSegments,
+                            cleanRetries,
+                            edges);
+                }
+
+                DownloadResult result = parent.downloadService().downloadSegmentedViaEdges(
+                        routerBaseUrl,
+                        cleanRemotePath,
+                        cleanRegion,
+                        cleanClientId,
+                        loggedInUserId,
+                        targetFile,
+                        overwrite,
+                        cleanSegments,
+                        cleanRetries,
+                        edges,
+                        new UserFileService.SegmentProgressListener() {
+                            @Override
+                            public void onSegmentRetry(int index, int attempt, int maxAttempts, String reason) {
+                                ConsoleUtils.info(
+                                        parent.ctx.out(),
+                                        "[FILE] Segment %d retry %d/%d (%s)",
+                                        index,
+                                        attempt,
+                                        maxAttempts,
+                                        reason);
+                            }
+
+                            @Override
+                            public void onSegmentDone(int index, long start, long end, URI edgeLocation) {
+                                ConsoleUtils.info(
+                                        parent.ctx.out(),
+                                        "[FILE] Segment %d done bytes=%d-%d from %s",
+                                        index,
+                                        start,
+                                        end,
+                                        edgeLocation);
+                            }
+                        });
+
+                return parent.handleDownloadResult(cleanRemotePath, targetFile, result);
+            } catch (IllegalArgumentException ex) {
+                return parent.validationError(ex.getMessage());
+            } catch (Exception ex) {
+                return parent.requestFailed("Segmented download failed: " + ex.getMessage());
             }
         }
     }
