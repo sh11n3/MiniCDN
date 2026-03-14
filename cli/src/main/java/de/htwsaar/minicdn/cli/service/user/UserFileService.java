@@ -458,12 +458,7 @@ public final class UserFileService {
      * @return normalisierter relativer Pfad
      */
     private static String normalizeRemotePath(String remotePath) {
-        String cleanPath =
-                PathUtils.stripLeadingSlash(Objects.toString(remotePath, "").trim());
-        if (cleanPath.isBlank()) {
-            throw new IllegalArgumentException("remotePath must not be blank");
-        }
-        return cleanPath;
+        return PathUtils.normalizeRelativePath(remotePath);
     }
 
     /**

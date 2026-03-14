@@ -39,9 +39,9 @@ import picocli.CommandLine.Spec;
         mixinStandardHelpOptions = true,
         footerHeading = "%nBeispiele:%n",
         footer = {
-            "  user file download -r EU docs/manual.pdf -o ./manual.pdf ",
-            "  user file download -r EU docs/manual.pdf -o ./manual.pdf -H http://localhost:8082 --client-id alice",
-            "  user file download -r EU docs/manual.pdf -o ./manual.pdf -H http://localhost:8082 --overwrite"
+            "  user file download -r EU docs/manual.pdf -o ./manual.pdf",
+            "  user file download -r EU docs/manual.pdf -o ./manual.pdf --client-id alice",
+            "  user file download-segmented -r EU docs/manual.pdf -o ./manual-seg.pdf --segments 4 --retries 2"
         },
         subcommands = {UserFileCommand.FileDownloadCommand.class, UserFileCommand.FileSegmentedDownloadCommand.class})
 public final class UserFileCommand implements Runnable {
@@ -167,6 +167,32 @@ public final class UserFileCommand implements Runnable {
     }
 
     /**
+     * Validiert die gewünschte Segmentanzahl.
+     *
+     * @param segments Segmentanzahl aus der CLI
+     * @return validierte Segmentanzahl
+     */
+    int validateSegments(int segments) {
+        if (segments <= 0) {
+            throw new IllegalArgumentException("--segments must be greater than 0");
+        }
+        return segments;
+    }
+
+    /**
+     * Validiert die Retry-Anzahl pro Segment.
+     *
+     * @param retries Retry-Anzahl aus der CLI
+     * @return validierte Retry-Anzahl
+     */
+    int validateRetries(int retries) {
+        if (retries < 0) {
+            throw new IllegalArgumentException("--retries must be greater than or equal to 0");
+        }
+        return retries;
+    }
+
+    /**
      * Gibt einen Validierungsfehler einheitlich aus.
      *
      * @param message Fehlermeldung
@@ -232,9 +258,9 @@ public final class UserFileCommand implements Runnable {
             mixinStandardHelpOptions = true,
             footerHeading = "%nBeispiele:%n",
             footer = {
-                "  user file download -r EU docs/manual.pdf -o ./manual.pdf -H http://localhost:8082",
-                "  user file download -r EU docs/manual.pdf -o ./manual.pdf -H http://localhost:8082 --client-id alice",
-                "  user file download -r EU docs/manual.pdf -o ./manual.pdf -H http://localhost:8082 --overwrite"
+                "  user file download -r EU docs/manual.pdf -o ./manual.pdf",
+                "  user file download -r EU docs/manual.pdf -o ./manual.pdf --client-id alice",
+                "  user file download -r EU docs/manual.pdf -o ./manual.pdf --overwrite"
             })
     public static final class FileDownloadCommand implements Callable<Integer> {
 
